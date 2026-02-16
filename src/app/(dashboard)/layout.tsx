@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/auth/guards";
-import { Sidebar } from "@/components/layout/sidebar";
+import { Sidebar, MobileHeader } from "@/components/layout/sidebar";
 
 export default async function DashboardLayout({
   children,
@@ -9,9 +9,15 @@ export default async function DashboardLayout({
   const user = await requireAuth();
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen flex-col bg-background md:flex-row">
+      {/* デスクトップサイドバー */}
       <Sidebar user={user} />
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+
+      {/* モバイルヘッダー + ドロワー */}
+      <MobileHeader user={user} />
+
+      {/* メインコンテンツ */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
     </div>
   );
 }
