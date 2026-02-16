@@ -1,0 +1,19 @@
+{
+  "name": "salon-dashboard-batch",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3",
+    "resend": "^6.9.2"
+  },
+  "devDependencies": {
+    "@types/node-cron": "^3.0.11",
+    "@types/node": "^20",
+    "tsx": "^4.19.0",
+    "typescript": "^5"
+  }
+}

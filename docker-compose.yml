@@ -21,6 +21,29 @@ services:
       - GOOGLE_OAUTH_SCOPES=${GOOGLE_OAUTH_SCOPES}
       - GOOGLE_TOKEN_ENCRYPTION_KEY=${GOOGLE_TOKEN_ENCRYPTION_KEY}
 
+  batch:
+    build:
+      context: .
+      dockerfile: batch/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_TOKEN_ENCRYPTION_KEY=${GOOGLE_TOKEN_ENCRYPTION_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - BATCH_NOTIFICATION_FROM=${BATCH_NOTIFICATION_FROM:-onboarding@resend.dev}
+      - BATCH_DAILY_CRON=${BATCH_DAILY_CRON:-0 18 * * *}
+      - BATCH_MONTHLY_CRON=${BATCH_MONTHLY_CRON:-0 18 8 * *}
+      - BATCH_BACKFILL_DAYS=${BATCH_BACKFILL_DAYS:-30}
+      - BATCH_HEALTH_PORT=${BATCH_HEALTH_PORT:-3001}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   nginx:
     image: nginx:alpine
     restart: unless-stopped
