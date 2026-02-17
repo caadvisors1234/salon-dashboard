@@ -16,10 +16,8 @@ export function ReportHeader({
   return (
     <header className="flex items-center justify-between border-b border-gray-200 pb-4 mb-6">
       <div className="flex items-center gap-4">
-        {/* ロゴプレースホルダー */}
-        <div className="flex h-10 w-10 items-center justify-center rounded bg-primary text-primary-foreground text-sm font-bold shrink-0">
-          Logo
-        </div>
+        {/* Puppeteer描画のためnext/imageではなくimgタグを使用 */}
+        <img src="/logo-small.png" alt="Logo" width={40} height={40} className="h-10 w-10 shrink-0" />
         <div>
           <p className="text-sm text-muted-foreground">{orgName}</p>
           <h1 className="text-lg font-bold">{locationName}</h1>

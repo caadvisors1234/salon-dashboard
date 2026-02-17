@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { login, type ActionResult } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,9 @@ export function LoginForm() {
   return (
     <Card>
       <CardHeader className="text-center">
+        <div className="flex justify-center mb-2">
+          <Image src="/logo.png" alt="Logo" width={64} height={64} className="h-16 w-16" />
+        </div>
         <CardTitle className="text-2xl">GBP Performance Dashboard</CardTitle>
         <CardDescription>
           メールアドレスとパスワードでログイン

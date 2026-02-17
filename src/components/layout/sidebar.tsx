@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Building2, Upload, Settings, LogOut, Menu, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Users, Building2, Upload, Settings, LogOut, Menu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -182,9 +183,7 @@ function SidebarNav({ user, onNavClick }: { user: AuthUser; onNavClick?: () => v
 function LogoArea(props: React.ComponentProps<"div">) {
   return (
     <div className="flex h-14 items-center gap-3 border-b px-4" {...props}>
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <BarChart3 className="h-4 w-4" />
-      </div>
+      <Image src="/logo.png" alt="Logo" width={32} height={32} className="h-8 w-8" />
       <div>
         <span className="text-sm font-semibold">GBP Dashboard</span>
         <p className="text-[10px] leading-tight text-muted-foreground">Performance Analytics</p>
@@ -230,9 +229,7 @@ export function MobileHeader({ user }: { user: AuthUser }) {
         </SheetContent>
       </Sheet>
       <Link href="/dashboard" className="ml-2 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <BarChart3 className="h-3.5 w-3.5" />
-        </div>
+        <Image src="/logo.png" alt="Logo" width={28} height={28} className="h-7 w-7" />
         <span className="text-sm font-semibold">GBP Dashboard</span>
       </Link>
     </header>
