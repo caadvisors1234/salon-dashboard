@@ -63,7 +63,7 @@ function HpbLineChart({
   height?: number;
 }) {
   return (
-    <Card>
+    <Card className="border-none shadow-none">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">{title}</CardTitle>
       </CardHeader>
@@ -74,7 +74,7 @@ function HpbLineChart({
           <ChartContainer config={config} className="w-full" style={{ height }}>
             <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={0} />
               <YAxis
                 tick={{ fontSize: 10 }}
                 label={
@@ -91,6 +91,7 @@ function HpbLineChart({
                 stroke={`var(--color-${String(dataKey)})`}
                 strokeWidth={2}
                 dot={{ r: 2 }}
+                isAnimationActive={false}
               />
               <Line
                 type="monotone"
@@ -100,6 +101,7 @@ function HpbLineChart({
                 strokeDasharray="5 5"
                 dot={{ r: 2 }}
                 opacity={0.6}
+                isAnimationActive={false}
               />
             </LineChart>
           </ChartContainer>
@@ -118,7 +120,7 @@ type ReportHpbSectionProps = {
 
 export function ReportHpbSection({ kpi, timeSeries }: ReportHpbSectionProps) {
   return (
-    <div className="report-page space-y-5 p-6" style={{ pageBreakBefore: "always" }}>
+    <div className="space-y-5">
       <h2 className="text-lg font-bold border-b pb-2">HPB パフォーマンス</h2>
 
       {/* KPI カード */}
@@ -126,14 +128,17 @@ export function ReportHpbSection({ kpi, timeSeries }: ReportHpbSectionProps) {
         <KpiCard
           kpi={kpi.salonPv}
           areaAvgLabel={formatAreaAvg(kpi.salonPv.areaAvg, "integer")}
+          className="border-none shadow-none"
         />
         <KpiCard
           kpi={kpi.cvr}
           areaAvgLabel={formatAreaAvg(kpi.cvr.areaAvg, "percent1")}
+          className="border-none shadow-none"
         />
         <KpiCard
           kpi={kpi.acr}
           areaAvgLabel={formatAreaAvg(kpi.acr.areaAvg, "percent1")}
+          className="border-none shadow-none"
         />
       </div>
 

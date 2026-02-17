@@ -12,7 +12,9 @@ import {
 } from "@/lib/pdf/report-queries";
 import { ReportHeader } from "../../components/report-header";
 import { ReportFooter } from "../../components/report-footer";
-import { ReportContent } from "./report-content";
+import { ReportGbpCharts, ReportGbpDetails } from "../../components/report-gbp-section";
+import { ReportHpbSection } from "../../components/report-hpb-section";
+import { ReportReadySignal } from "../../components/report-ready-signal";
 
 type Props = {
   params: Promise<{ locationId: string }>;
@@ -76,27 +78,39 @@ export default async function StoreReportPage({ params, searchParams }: Props) {
 
   const periodLabel = `${formatYearMonthLabel(from)} 〜 ${formatYearMonthLabel(to)}`;
   const deviceMonthLabel = formatYearMonthLabel(to);
+  const hasHpb = hpbData.hasData && hpbData.kpi != null;
 
   return (
     <div className="bg-white">
-      <div className="report-page p-6">
+      {/* Page 1: ヘッダー + GBP上部（KPI + 折れ線チャート） */}
+      <div data-pdf-page className="report-page p-6">
         <ReportHeader
           orgName={locationInfo.orgName}
           locationName={locationInfo.locationName}
           periodLabel={periodLabel}
         />
+        <ReportGbpCharts kpi={kpiData} timeSeries={timeSeries} />
       </div>
-      <ReportContent
-        kpi={kpiData}
-        timeSeries={timeSeries}
-        deviceBreakdown={deviceBreakdown}
-        deviceMonthLabel={deviceMonthLabel}
-        keywords={keywords}
-        hpbData={hpbData}
-      />
-      <div className="report-page p-6">
-        <ReportFooter />
+
+      {/* Page 2: GBP下部（デバイス内訳 + キーワード） */}
+      <div data-pdf-page className="report-page p-6">
+        <ReportGbpDetails
+          deviceBreakdown={deviceBreakdown}
+          deviceMonthLabel={deviceMonthLabel}
+          keywords={keywords}
+        />
+        {!hasHpb && <ReportFooter />}
       </div>
+
+      {/* Page 3: HPBセクション（データありの場合のみ） */}
+      {hasHpb && (
+        <div data-pdf-page className="report-page p-6">
+          <ReportHpbSection kpi={hpbData.kpi!} timeSeries={hpbData.timeSeries} />
+          <ReportFooter />
+        </div>
+      )}
+
+      <ReportReadySignal />
     </div>
   );
 }

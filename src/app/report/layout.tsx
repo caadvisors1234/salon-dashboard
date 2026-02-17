@@ -18,16 +18,6 @@ export default function ReportLayout({
   return (
     <>
       <style>{`
-        @media print {
-          @page {
-            size: A4 landscape;
-            margin: 10mm;
-          }
-          body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-        }
         @media screen {
           .report-page {
             width: 297mm;

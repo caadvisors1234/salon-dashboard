@@ -63,6 +63,14 @@ const deviceChartConfig = {
   mobileMaps: { label: "Googleマップ (モバイル)", color: "var(--color-chart-4)" },
 } satisfies ChartConfig;
 
+// デバイスキー → グローバルCSS変数（ChartContainer外の凡例リスト用）
+const DEVICE_COLORS: Record<string, string> = {
+  desktopSearch: "var(--color-chart-1)",
+  mobileSearch: "var(--color-chart-2)",
+  desktopMaps: "var(--color-chart-3)",
+  mobileMaps: "var(--color-chart-4)",
+};
+
 const NAME_TO_KEY: Record<string, string> = {
   "Google検索 (PC)": "desktopSearch",
   "Google検索 (モバイル)": "mobileSearch",
@@ -70,44 +78,29 @@ const NAME_TO_KEY: Record<string, string> = {
   "Googleマップ (モバイル)": "mobileMaps",
 };
 
-// --- Props ---
+// --- ReportGbpCharts ---
 
-type ReportGbpSectionProps = {
+type ReportGbpChartsProps = {
   kpi: GbpKpiData;
   timeSeries: MonthlyMetricPoint[];
-  deviceBreakdown: DeviceBreakdownItem[];
-  deviceMonthLabel: string;
-  keywords: KeywordRankingRow[];
 };
 
-export function ReportGbpSection({
-  kpi,
-  timeSeries,
-  deviceBreakdown,
-  deviceMonthLabel,
-  keywords,
-}: ReportGbpSectionProps) {
-  const deviceData = deviceBreakdown.map((item) => ({
-    ...item,
-    key: NAME_TO_KEY[item.name] ?? item.name,
-  }));
-  const deviceTotal = deviceBreakdown.reduce((s, d) => s + d.value, 0);
-
+export function ReportGbpCharts({ kpi, timeSeries }: ReportGbpChartsProps) {
   return (
-    <div className="report-page space-y-5 p-6">
+    <div className="space-y-5 mt-4">
       <h2 className="text-lg font-bold border-b pb-2">GBP パフォーマンス</h2>
 
       {/* KPI カード */}
       <div className="grid grid-cols-4 gap-3">
-        <KpiCard kpi={kpi.rating} />
-        <KpiCard kpi={kpi.reviewCount} />
-        <KpiCard kpi={kpi.totalImpressions} />
-        <KpiCard kpi={kpi.totalActions} />
+        <KpiCard kpi={kpi.rating} className="border-none shadow-none" />
+        <KpiCard kpi={kpi.reviewCount} className="border-none shadow-none" />
+        <KpiCard kpi={kpi.totalImpressions} className="border-none shadow-none" />
+        <KpiCard kpi={kpi.totalActions} className="border-none shadow-none" />
       </div>
 
       {/* 閲覧数 + アクション推移グラフ */}
       <div className="grid grid-cols-2 gap-4">
-        <Card>
+        <Card className="border-none shadow-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">閲覧数推移</CardTitle>
           </CardHeader>
@@ -118,7 +111,7 @@ export function ReportGbpSection({
               <ChartContainer config={impressionChartConfig} className="h-[200px] w-full">
                 <LineChart data={timeSeries} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={0} />
                   <YAxis tick={{ fontSize: 10 }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
@@ -130,6 +123,7 @@ export function ReportGbpSection({
                       stroke={`var(--color-${s.key})`}
                       strokeWidth={2}
                       dot={{ r: 2 }}
+                      isAnimationActive={false}
                     />
                   ))}
                 </LineChart>
@@ -138,7 +132,7 @@ export function ReportGbpSection({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-none shadow-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">アクション指標推移</CardTitle>
           </CardHeader>
@@ -149,7 +143,7 @@ export function ReportGbpSection({
               <ChartContainer config={actionChartConfig} className="h-[200px] w-full">
                 <LineChart data={timeSeries} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={0} />
                   <YAxis tick={{ fontSize: 10 }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
@@ -161,6 +155,7 @@ export function ReportGbpSection({
                       stroke={`var(--color-${s.key})`}
                       strokeWidth={2}
                       dot={{ r: 2 }}
+                      isAnimationActive={false}
                     />
                   ))}
                 </LineChart>
@@ -169,10 +164,36 @@ export function ReportGbpSection({
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+// --- ReportGbpDetails ---
+
+type ReportGbpDetailsProps = {
+  deviceBreakdown: DeviceBreakdownItem[];
+  deviceMonthLabel: string;
+  keywords: KeywordRankingRow[];
+};
+
+export function ReportGbpDetails({
+  deviceBreakdown,
+  deviceMonthLabel,
+  keywords,
+}: ReportGbpDetailsProps) {
+  const deviceData = deviceBreakdown.map((item) => ({
+    ...item,
+    key: NAME_TO_KEY[item.name] ?? item.name,
+  }));
+  const deviceTotal = deviceBreakdown.reduce((s, d) => s + d.value, 0);
+
+  return (
+    <div className="space-y-5">
+      <h2 className="text-lg font-bold border-b pb-2">GBP パフォーマンス（続き）</h2>
 
       {/* デバイス内訳 + キーワード */}
       <div className="grid grid-cols-[280px_1fr] gap-4">
-        <Card>
+        <Card className="border-none shadow-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">デバイス内訳（{deviceMonthLabel}）</CardTitle>
           </CardHeader>
@@ -180,44 +201,50 @@ export function ReportGbpSection({
             {deviceTotal === 0 ? (
               <p className="py-4 text-center text-xs text-muted-foreground">データなし</p>
             ) : (
-              <ChartContainer config={deviceChartConfig} className="h-[200px] w-full">
-                <PieChart>
-                  <Pie
-                    data={deviceData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={70}
-                    paddingAngle={2}
-                    dataKey="value"
-                    nameKey="key"
-                    label={(props) => {
-                      const percent = (props as { percent?: number }).percent ?? 0;
-                      return `${(percent * 100).toFixed(1)}%`;
-                    }}
-                  >
-                    {deviceData.map((item, index) => (
-                      <Cell key={index} fill={`var(--color-${item.key})`} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        nameKey="key"
-                        formatter={(value) =>
-                          typeof value === "number" ? value.toLocaleString("ja-JP") : value
-                        }
-                      />
-                    }
-                  />
-                  <ChartLegend content={<ChartLegendContent nameKey="key" />} />
-                </PieChart>
-              </ChartContainer>
+              <div>
+                <ChartContainer config={deviceChartConfig} className="aspect-auto h-[140px] w-full">
+                  <PieChart>
+                    <Pie
+                      data={deviceData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={25}
+                      outerRadius={55}
+                      paddingAngle={2}
+                      dataKey="value"
+                      nameKey="key"
+                      isAnimationActive={false}
+                    >
+                      {deviceData.map((item, index) => (
+                        <Cell key={index} fill={`var(--color-${item.key})`} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+                {/* 凡例リスト（ChartContainer外なのでグローバルCSS変数を直接使用） */}
+                <ul className="mt-1 space-y-0.5 text-xs">
+                  {deviceData.map((item) => {
+                    const pct = deviceTotal > 0 ? ((item.value / deviceTotal) * 100).toFixed(1) : "0.0";
+                    return (
+                      <li key={item.key} className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-sm shrink-0"
+                          style={{ backgroundColor: DEVICE_COLORS[item.key] }}
+                        />
+                        <span className="truncate">
+                          {deviceChartConfig[item.key as keyof typeof deviceChartConfig]?.label ?? item.name}
+                        </span>
+                        <span className="ml-auto font-medium">{pct}%</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-none shadow-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">検索キーワードランキング（上位20件）</CardTitle>
           </CardHeader>

@@ -1,4 +1,5 @@
 import puppeteer, { type Browser } from "puppeteer";
+import { PDFDocument } from "pdf-lib";
 import archiver from "archiver";
 
 const REPORT_READY_TIMEOUT = 30_000; // 30秒
@@ -75,6 +76,48 @@ async function getBrowser(): Promise<Browser> {
   return browserLaunchPromise;
 }
 
+// A4横のポイントサイズ
+const A4_LANDSCAPE_WIDTH = 841.89;
+const A4_LANDSCAPE_HEIGHT = 595.28;
+
+/**
+ * 複数のPNGスクリーンショットをA4横PDFに合成する。
+ * 各スクリーンショットが1ページになる。画像は上寄せ配置。
+ */
+async function screenshotsToPdf(screenshots: Buffer[]): Promise<Buffer> {
+  const pdfDoc = await PDFDocument.create();
+
+  for (let i = 0; i < screenshots.length; i++) {
+    let pngImage;
+    try {
+      pngImage = await pdfDoc.embedPng(screenshots[i]);
+    } catch (err) {
+      throw new Error(
+        `PDFページ ${i + 1}/${screenshots.length} の画像埋め込みに失敗: ${err instanceof Error ? err.message : err}`
+      );
+    }
+    const page = pdfDoc.addPage([A4_LANDSCAPE_WIDTH, A4_LANDSCAPE_HEIGHT]);
+
+    const scaleX = A4_LANDSCAPE_WIDTH / pngImage.width;
+    const scaleY = A4_LANDSCAPE_HEIGHT / pngImage.height;
+    const scale = Math.min(scaleX, scaleY);
+
+    const drawWidth = pngImage.width * scale;
+    const drawHeight = pngImage.height * scale;
+
+    // 水平中央、上寄せ（PDF座標系はY軸が下から上）
+    page.drawImage(pngImage, {
+      x: (A4_LANDSCAPE_WIDTH - drawWidth) / 2,
+      y: A4_LANDSCAPE_HEIGHT - drawHeight,
+      width: drawWidth,
+      height: drawHeight,
+    });
+  }
+
+  const pdfBytes = await pdfDoc.save();
+  return Buffer.from(pdfBytes);
+}
+
 /**
  * 店舗単位のPDFを生成する。
  * signal が abort された場合、ページをクローズしてキャンセルする。
@@ -108,7 +151,8 @@ export async function generateStorePdf(
       url: baseUrl,
     });
 
-    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 2 });
+    // 297mm ≈ 1122px @96dpi — report-page幅と一致させる
+    await page.setViewport({ width: 1122, height: 793, deviceScaleFactor: 2 });
 
     await page.goto(url, { waitUntil: "networkidle0", timeout: 30_000 });
 
@@ -118,15 +162,19 @@ export async function generateStorePdf(
       polling: REPORT_READY_POLL_INTERVAL,
     });
 
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      landscape: true,
-      printBackground: true,
-      scale: 0.8,
-      margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
-    });
+    // 各 [data-pdf-page] 要素をスクリーンショットし、pdf-lib で合成
+    const pageElements = await page.$$("[data-pdf-page]");
+    if (pageElements.length === 0) {
+      throw new Error("PDF生成対象の要素が見つかりません（[data-pdf-page] が0個）");
+    }
 
-    return Buffer.from(pdfBuffer);
+    const screenshots: Buffer[] = [];
+    for (const el of pageElements) {
+      const shot = await el.screenshot({ type: "png" });
+      screenshots.push(Buffer.from(shot));
+    }
+
+    return await screenshotsToPdf(screenshots);
   } catch (err) {
     if (signal?.aborted) {
       throw new Error("PDF生成がキャンセルされました");
