@@ -20,8 +20,8 @@ type OAuthStatus = {
 };
 
 type GbpAccount = {
-  gbp_account_id: string;
-  account_name: string | null;
+  gbpAccountId: string;
+  accountName: string | null;
 };
 
 export function GoogleOAuthCard() {
@@ -142,8 +142,8 @@ export function GoogleOAuthCard() {
             <p className="text-sm font-medium">GBP アカウント:</p>
             <ul className="list-disc pl-5 text-sm text-muted-foreground">
               {accounts.map((a, i) => (
-                <li key={a.gbp_account_id ?? i}>
-                  {a.account_name || a.gbp_account_id}
+                <li key={a.gbpAccountId ?? i}>
+                  {a.accountName || a.gbpAccountId}
                 </li>
               ))}
             </ul>

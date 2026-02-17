@@ -45,7 +45,7 @@ export interface DailyMetricTimeSeries {
 }
 
 export interface MultiDailyMetricTimeSeriesItem {
-  dailyMetricTimeSeries: DailyMetricTimeSeries;
+  dailyMetricTimeSeries: DailyMetricTimeSeries[];
 }
 
 export interface FetchMultiDailyMetricsResponse {

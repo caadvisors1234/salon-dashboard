@@ -32,15 +32,23 @@ export async function fetchDailyMetrics(
   startDate: string,
   endDate: string
 ): Promise<DailyMetricResult[]> {
-  const url = `${GBP_API.PERFORMANCE_BASE}/locations/${gbpLocationId}:fetchMultiDailyMetricsTimeSeries`;
+  const start = toGoogleDate(startDate);
+  const end = toGoogleDate(endDate);
 
-  const response = await client.post<FetchMultiDailyMetricsResponse>(url, {
-    dailyMetrics: [...DAILY_METRIC_TYPES],
-    dailyRange: {
-      startDate: toGoogleDate(startDate),
-      endDate: toGoogleDate(endDate),
-    },
-  });
+  const params = new URLSearchParams();
+  for (const metric of DAILY_METRIC_TYPES) {
+    params.append("dailyMetrics", metric);
+  }
+  params.set("dailyRange.start_date.year", String(start.year));
+  params.set("dailyRange.start_date.month", String(start.month));
+  params.set("dailyRange.start_date.day", String(start.day));
+  params.set("dailyRange.end_date.year", String(end.year));
+  params.set("dailyRange.end_date.month", String(end.month));
+  params.set("dailyRange.end_date.day", String(end.day));
+
+  const url = `${GBP_API.PERFORMANCE_BASE}/locations/${gbpLocationId}:fetchMultiDailyMetricsTimeSeries?${params.toString()}`;
+
+  const response = await client.get<FetchMultiDailyMetricsResponse>(url);
 
   const results: DailyMetricResult[] = [];
 
@@ -49,16 +57,20 @@ export async function fetchDailyMetrics(
   }
 
   for (const item of response.multiDailyMetricTimeSeries) {
-    const series = item.dailyMetricTimeSeries;
-    if (!series?.timeSeries?.datedValues) continue;
+    const seriesList = item.dailyMetricTimeSeries;
+    if (!Array.isArray(seriesList)) continue;
 
-    for (const dv of series.timeSeries.datedValues) {
-      if (dv.value !== undefined) {
-        results.push({
-          date: fromGoogleDate(dv.date),
-          metricType: series.dailyMetric,
-          value: parseInt(dv.value, 10) || 0,
-        });
+    for (const series of seriesList) {
+      if (!series?.timeSeries?.datedValues) continue;
+
+      for (const dv of series.timeSeries.datedValues) {
+        if (dv.value !== undefined) {
+          results.push({
+            date: fromGoogleDate(dv.date),
+            metricType: series.dailyMetric,
+            value: parseInt(dv.value, 10) || 0,
+          });
+        }
       }
     }
   }

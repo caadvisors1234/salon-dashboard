@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { locationId?: string };
+  let body: { locationId?: string; targetDate?: string };
   try {
     body = await request.json();
   } catch {
@@ -71,9 +71,24 @@ export async function POST(request: NextRequest) {
   const gbpAccountId = accounts?.gbp_account_id || null;
 
   const client = createGbpClient();
-  const today = new Date().toISOString().split("T")[0];
-  const now = new Date();
-  const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  // GBP APIは2-3日のデータ遅延があるため、デフォルトを3日前にする
+  const defaultDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const targetDate = body.targetDate || defaultDate;
+
+  // targetDate のフォーマット検証
+  const targetDateObj = new Date(targetDate + "T00:00:00Z");
+  if (isNaN(targetDateObj.getTime())) {
+    return NextResponse.json(
+      { error: "targetDate の形式が不正です（YYYY-MM-DD）" },
+      { status: 400 }
+    );
+  }
+
+  // 月次キーワードは前月をデフォルトにする（当月データは通常未提供）
+  // 日を1固定にして月末境界での繰り上がりを防ぐ
+  const prevMonth = new Date(Date.UTC(targetDateObj.getUTCFullYear(), targetDateObj.getUTCMonth() - 1, 1));
+  const yearMonth = `${prevMonth.getUTCFullYear()}${String(prevMonth.getUTCMonth() + 1).padStart(2, "0")}`;
 
   const results: Record<string, Record<string, string | number | boolean | null>> = {};
 
@@ -82,8 +97,8 @@ export async function POST(request: NextRequest) {
     const metrics = await fetchDailyMetrics(
       client,
       location.gbp_location_id,
-      today,
-      today
+      targetDate,
+      targetDate
     );
     const savedCount = await saveDailyMetrics(location.id, metrics);
     results.dailyMetrics = { success: true, count: savedCount };
@@ -102,7 +117,7 @@ export async function POST(request: NextRequest) {
         gbpAccountId,
         location.gbp_location_id
       );
-      await saveRatingSnapshot(location.id, today, rating);
+      await saveRatingSnapshot(location.id, targetDate, rating);
       results.ratingSnapshot = {
         success: true,
         averageRating: rating.averageRating,
@@ -126,8 +141,8 @@ export async function POST(request: NextRequest) {
     const keywords = await fetchMonthlyKeywords(
       client,
       location.gbp_location_id,
-      now.getFullYear(),
-      now.getMonth() + 1
+      prevMonth.getUTCFullYear(),
+      prevMonth.getUTCMonth() + 1
     );
     const savedCount = await saveMonthlyKeywords(
       location.id,
@@ -161,7 +176,7 @@ export async function POST(request: NextRequest) {
     locationId: location.id,
     locationName: location.name,
     gbpLocationId: location.gbp_location_id,
-    fetchDate: today,
+    fetchDate: targetDate,
     results,
   });
 }
