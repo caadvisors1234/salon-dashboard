@@ -246,7 +246,7 @@ export function ReportGbpDetails({
 
         <Card className="border-none shadow-none">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">検索キーワードランキング（上位20件）</CardTitle>
+            <CardTitle className="text-sm">検索キーワードランキング（上位10件）</CardTitle>
           </CardHeader>
           <CardContent>
             {keywords.length === 0 ? (

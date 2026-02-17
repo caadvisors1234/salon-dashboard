@@ -19,7 +19,7 @@ export async function KeywordSection({
         description="Google 検索で表示されたキーワード"
         icon={<Search className="h-5 w-5" />}
       />
-      <KeywordRankingTable initialResult={result} locationId={locationId} yearMonth={yearMonth} />
+      <KeywordRankingTable result={result} />
     </section>
   );
 }

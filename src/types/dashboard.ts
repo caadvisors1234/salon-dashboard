@@ -96,9 +96,6 @@ export type KeywordRankingRow = {
 
 export type KeywordRankingResult = {
   rows: KeywordRankingRow[];
-  totalCount: number;
-  currentPage: number;
-  pageSize: number;
   yearMonth: string;
 };
 

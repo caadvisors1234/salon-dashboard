@@ -215,8 +215,9 @@ export async function getReportKeywordRanking(
   yearMonth: string
 ): Promise<KeywordRankingRow[]> {
   const supabase = createAdminClient();
-  const prevYM = getPreviousMonth(yearMonth);
-  const ym = yearMonth.replace("-", "");
+  const normalized = normalizeYearMonth(yearMonth);
+  const prevYM = getPreviousMonth(normalized);
+  const ym = normalized.replace("-", "");
   const prevYm = prevYM.replace("-", "");
 
   const [currentRes, prevRes] = await Promise.all([
@@ -226,7 +227,7 @@ export async function getReportKeywordRanking(
       .eq("location_id", locationId)
       .eq("year_month", ym)
       .order("insights_value", { ascending: false, nullsFirst: false })
-      .limit(20),
+      .limit(10),
     supabase
       .from("monthly_keywords")
       .select("keyword, insights_value, insights_threshold, insights_value_type")

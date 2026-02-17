@@ -391,23 +391,22 @@ export async function getDeviceBreakdown(
 
 export async function getKeywordRanking(
   locationId: string,
-  yearMonth: string,
-  page: number = 1,
-  pageSize: number = 20
+  yearMonth: string
 ): Promise<KeywordRankingResult> {
   const supabase = await createClient();
-  const prevYM = getPreviousMonth(yearMonth);
-  const ym = yearMonth.replace("-", "");
+  const normalized = normalizeYearMonth(yearMonth);
+  const prevYM = getPreviousMonth(normalized);
+  const ym = normalized.replace("-", "");
   const prevYm = prevYM.replace("-", "");
 
-  // 当月キーワード
-  const { data: currentKw, count } = await supabase
+  // 当月キーワード（上位10件）
+  const { data: currentKw } = await supabase
     .from("monthly_keywords")
-    .select("keyword, insights_value, insights_threshold, insights_value_type", { count: "exact" })
+    .select("keyword, insights_value, insights_threshold, insights_value_type")
     .eq("location_id", locationId)
     .eq("year_month", ym)
     .order("insights_value", { ascending: false, nullsFirst: false })
-    .range((page - 1) * pageSize, page * pageSize - 1);
+    .limit(10);
 
   // 前月キーワード（前月比計算用）
   const { data: prevKw } = await supabase
@@ -421,7 +420,7 @@ export async function getKeywordRanking(
   );
 
   const rows: KeywordRankingRow[] = (currentKw || []).map((kw, i) => {
-    const rank = (page - 1) * pageSize + i + 1;
+    const rank = i + 1;
     const prev = prevMap.get(kw.keyword);
     const isThreshold = kw.insights_value_type === "THRESHOLD";
     const displayValue = isThreshold ? (kw.insights_threshold ?? 0) : (kw.insights_value ?? 0);
@@ -453,9 +452,6 @@ export async function getKeywordRanking(
 
   return {
     rows,
-    totalCount: count ?? 0,
-    currentPage: page,
-    pageSize,
     yearMonth,
   };
 }

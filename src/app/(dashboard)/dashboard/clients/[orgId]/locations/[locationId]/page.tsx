@@ -47,7 +47,7 @@ export default async function LocationDetailPage({
 
   // キーワードデータは前月分が最新（GBP APIのデータ提供タイミング）
   const prevMonthDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1));
-  const keywordYearMonth = `${prevMonthDate.getUTCFullYear()}${String(prevMonthDate.getUTCMonth() + 1).padStart(2, "0")}`;
+  const keywordYearMonth = `${prevMonthDate.getUTCFullYear()}-${String(prevMonthDate.getUTCMonth() + 1).padStart(2, "0")}`;
 
   return (
     <div className="space-y-6">
