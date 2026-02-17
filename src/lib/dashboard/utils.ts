@@ -48,6 +48,11 @@ export function normalizeYearMonth(ym: string): string {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}`;
 }
 
+/** "2025年9月 〜 2026年2月" 形式のラベルを生成 */
+export function formatPeriodRangeLabel(startMonth: string, endMonth: string): string {
+  return `${formatYearMonthLabel(startMonth)} 〜 ${formatYearMonthLabel(endMonth)}`;
+}
+
 /** startMonth 〜 endMonth の全月を YYYY-MM 配列で返す */
 export function generateMonthRange(startMonth: string, endMonth: string): string[] {
   const months: string[] = [];

@@ -49,11 +49,18 @@ export type LocationSummary = {
 
 // --- GBP KPI ---
 
+export type GbpKpiPeriodInfo = {
+  currentPeriodLabel: string;  // "2026年2月1日〜17日" or "2026年2月"
+  previousMonthLabel: string;  // "2026年1月"
+  description: string;         // "当月（...）と前月（...）の比較"
+};
+
 export type GbpKpiData = {
   rating: KpiValue;
   reviewCount: KpiValue;
   totalImpressions: KpiValue;
   totalActions: KpiValue;
+  periodInfo?: GbpKpiPeriodInfo;
 };
 
 // --- メトリクス時系列 ---
@@ -130,6 +137,7 @@ export type HpbData = {
   timeSeries: HpbMonthlyPoint[];
   uploadInfo: HpbUploadInfo | null;
   hasData: boolean;
+  latestMonthLabel?: string;
 };
 
 // --- 期間選択 ---

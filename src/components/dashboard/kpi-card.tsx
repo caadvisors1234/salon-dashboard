@@ -66,6 +66,9 @@ export function KpiCard({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {(kpi.trend.direction === "up" || kpi.trend.direction === "down" || kpi.trend.direction === "flat") && (
+            <span className="text-xs text-muted-foreground">前月比</span>
+          )}
           <TrendBadge trend={kpi.trend} />
           {kpi.periodLabel && (
             <span className="text-xs text-muted-foreground">

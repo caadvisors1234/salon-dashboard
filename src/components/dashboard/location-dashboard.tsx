@@ -10,6 +10,7 @@ import { ActionsChart } from "./actions-chart";
 import { DeviceBreakdownChart } from "./device-breakdown-chart";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPeriodRangeLabel } from "@/lib/dashboard/utils";
 import type {
   GbpKpiData,
   MonthlyMetricPoint,
@@ -71,7 +72,7 @@ export function LocationDashboard({
       <section>
         <SectionHeader
           title="GBP パフォーマンス"
-          description="Google ビジネス プロフィールの主要指標"
+          description={gbpKpi.periodInfo?.description ?? "Google ビジネス プロフィールの主要指標"}
           icon={<BarChart3 className="h-5 w-5" />}
         />
         <div className="mt-4">
@@ -83,6 +84,7 @@ export function LocationDashboard({
       <section className="space-y-4">
         <SectionHeader
           title="推移グラフ"
+          description={formatPeriodRangeLabel(period.startMonth, period.endMonth)}
           icon={<TrendingUp className="h-5 w-5" />}
           action={<PeriodSelector value={period} onChange={handlePeriodChange} />}
         />

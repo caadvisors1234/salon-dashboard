@@ -83,12 +83,18 @@ const NAME_TO_KEY: Record<string, string> = {
 type ReportGbpChartsProps = {
   kpi: GbpKpiData;
   timeSeries: MonthlyMetricPoint[];
+  periodDescription?: string;
 };
 
-export function ReportGbpCharts({ kpi, timeSeries }: ReportGbpChartsProps) {
+export function ReportGbpCharts({ kpi, timeSeries, periodDescription }: ReportGbpChartsProps) {
   return (
     <div className="space-y-5 mt-4">
-      <h2 className="text-lg font-bold border-b pb-2">GBP パフォーマンス</h2>
+      <div>
+        <h2 className="text-lg font-bold border-b pb-2">GBP パフォーマンス</h2>
+        {periodDescription && (
+          <p className="mt-1 text-xs text-muted-foreground">{periodDescription}</p>
+        )}
+      </div>
 
       {/* KPI カード */}
       <div className="grid grid-cols-4 gap-3">
@@ -174,12 +180,14 @@ type ReportGbpDetailsProps = {
   deviceBreakdown: DeviceBreakdownItem[];
   deviceMonthLabel: string;
   keywords: KeywordRankingRow[];
+  keywordMonthLabel?: string;
 };
 
 export function ReportGbpDetails({
   deviceBreakdown,
   deviceMonthLabel,
   keywords,
+  keywordMonthLabel,
 }: ReportGbpDetailsProps) {
   const deviceData = deviceBreakdown.map((item) => ({
     ...item,
@@ -246,7 +254,7 @@ export function ReportGbpDetails({
 
         <Card className="border-none shadow-none">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">検索キーワードランキング（上位10件）</CardTitle>
+            <CardTitle className="text-sm">検索キーワードランキング（上位10件{keywordMonthLabel && ` / ${keywordMonthLabel}`}）</CardTitle>
           </CardHeader>
           <CardContent>
             {keywords.length === 0 ? (

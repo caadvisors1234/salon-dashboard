@@ -14,7 +14,7 @@ export default async function DashboardPage() {
     redirect(`/dashboard/clients/${user.orgId}`);
   }
 
-  const clients = await getClientSummaries();
+  const { clients, targetMonth } = await getClientSummaries();
 
   return (
     <div className="space-y-6">
@@ -24,7 +24,7 @@ export default async function DashboardPage() {
           クライアント別パフォーマンスサマリー
         </p>
       </div>
-      <ClientListTable clients={clients} />
+      <ClientListTable clients={clients} targetMonth={targetMonth} />
     </div>
   );
 }

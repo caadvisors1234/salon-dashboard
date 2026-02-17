@@ -12,14 +12,18 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import type { LocationSummary } from "@/types/dashboard";
+import { formatYearMonthLabel } from "@/lib/dashboard/utils";
 
 export function LocationListTable({
   locations,
   orgId,
+  targetMonth,
 }: {
   locations: LocationSummary[];
   orgId: string;
+  targetMonth: string;
 }) {
+  const monthLabel = formatYearMonthLabel(targetMonth);
   return (
     <Card>
       <CardHeader>
@@ -37,8 +41,8 @@ export function LocationListTable({
             <TableHeader>
               <TableRow>
                 <TableHead>店舗名</TableHead>
-                <TableHead className="text-right">前月閲覧数</TableHead>
-                <TableHead className="text-right">前月アクション数</TableHead>
+                <TableHead className="text-right">閲覧数（{monthLabel}）</TableHead>
+                <TableHead className="text-right">アクション数（{monthLabel}）</TableHead>
                 <TableHead className="text-right">評価</TableHead>
                 <TableHead className="text-right">レビュー数</TableHead>
               </TableRow>

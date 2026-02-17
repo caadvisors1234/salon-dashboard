@@ -80,6 +80,11 @@ export default async function StoreReportPage({ params, searchParams }: Props) {
   const deviceMonthLabel = formatYearMonthLabel(to);
   const hasHpb = hpbData.hasData && hpbData.kpi != null;
 
+  // 期間情報ラベル
+  const kpiPeriodDesc = kpiData.periodInfo?.description;
+  const keywordMonthLabel = formatYearMonthLabel(keywordYearMonth);
+  const hpbLatestMonthLabel = hpbData.latestMonthLabel;
+
   return (
     <div className="bg-white">
       {/* Page 1: ヘッダー + GBP上部（KPI + 折れ線チャート） */}
@@ -89,7 +94,7 @@ export default async function StoreReportPage({ params, searchParams }: Props) {
           locationName={locationInfo.locationName}
           periodLabel={periodLabel}
         />
-        <ReportGbpCharts kpi={kpiData} timeSeries={timeSeries} />
+        <ReportGbpCharts kpi={kpiData} timeSeries={timeSeries} periodDescription={kpiPeriodDesc} />
       </div>
 
       {/* Page 2: GBP下部（デバイス内訳 + キーワード） */}
@@ -98,6 +103,7 @@ export default async function StoreReportPage({ params, searchParams }: Props) {
           deviceBreakdown={deviceBreakdown}
           deviceMonthLabel={deviceMonthLabel}
           keywords={keywords}
+          keywordMonthLabel={keywordMonthLabel}
         />
         {!hasHpb && <ReportFooter />}
       </div>
@@ -105,7 +111,7 @@ export default async function StoreReportPage({ params, searchParams }: Props) {
       {/* Page 3: HPBセクション（データありの場合のみ） */}
       {hasHpb && (
         <div data-pdf-page className="report-page p-6">
-          <ReportHpbSection kpi={hpbData.kpi!} timeSeries={hpbData.timeSeries} />
+          <ReportHpbSection kpi={hpbData.kpi!} timeSeries={hpbData.timeSeries} latestMonthLabel={hpbLatestMonthLabel} />
           <ReportFooter />
         </div>
       )}

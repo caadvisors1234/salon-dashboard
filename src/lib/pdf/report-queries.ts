@@ -119,6 +119,9 @@ export async function getReportGbpKpiData(
   const prevRatingVal = prevRatingRes.data?.[0]?.rating ?? null;
   const prevReviewCount = prevRatingRes.data?.[0]?.review_count ?? null;
 
+  const currentPeriodLabel = formatYearMonthLabel(endMonth);
+  const previousMonthLabel = formatYearMonthLabel(prevYM);
+
   return {
     rating: {
       label: "総合評価",
@@ -143,6 +146,11 @@ export async function getReportGbpKpiData(
       value: curActions,
       format: "integer",
       trend: buildTrend(curActions, prevActions),
+    },
+    periodInfo: {
+      currentPeriodLabel,
+      previousMonthLabel,
+      description: `${currentPeriodLabel} と ${previousMonthLabel} の比較`,
     },
   };
 }
@@ -275,6 +283,7 @@ export async function getReportHpbData(locationId: string): Promise<{
   kpi: HpbKpiData | null;
   timeSeries: HpbMonthlyPoint[];
   hasData: boolean;
+  latestMonthLabel?: string;
 }> {
   const supabase = createAdminClient();
 
@@ -327,7 +336,9 @@ export async function getReportHpbData(locationId: string): Promise<{
     },
   };
 
-  return { kpi, timeSeries, hasData: true };
+  const latestMonthLabel = formatYearMonthLabel(normalizeYearMonth(latest.year_month));
+
+  return { kpi, timeSeries, hasData: true, latestMonthLabel };
 }
 
 // --- クライアントの全店舗一覧取得 ---

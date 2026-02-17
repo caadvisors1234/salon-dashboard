@@ -18,7 +18,7 @@ export default async function ClientDetailPage({
     notFound();
   }
 
-  const { orgName, locations } = await getLocationSummaries(orgId);
+  const { orgName, locations, targetMonth } = await getLocationSummaries(orgId);
 
   if (!orgName) {
     notFound();
@@ -41,7 +41,7 @@ export default async function ClientDetailPage({
           店舗別パフォーマンスサマリー（{locations.length}店舗）
         </p>
       </div>
-      <LocationListTable locations={locations} orgId={orgId} />
+      <LocationListTable locations={locations} orgId={orgId} targetMonth={targetMonth} />
     </div>
   );
 }

@@ -116,12 +116,15 @@ function HpbLineChart({
 type ReportHpbSectionProps = {
   kpi: HpbKpiData;
   timeSeries: HpbMonthlyPoint[];
+  latestMonthLabel?: string;
 };
 
-export function ReportHpbSection({ kpi, timeSeries }: ReportHpbSectionProps) {
+export function ReportHpbSection({ kpi, timeSeries, latestMonthLabel }: ReportHpbSectionProps) {
   return (
     <div className="space-y-5">
-      <h2 className="text-lg font-bold border-b pb-2">HPB パフォーマンス</h2>
+      <h2 className="text-lg font-bold border-b pb-2">
+        HPB パフォーマンス{latestMonthLabel && `（最新: ${latestMonthLabel}）`}
+      </h2>
 
       {/* KPI カード */}
       <div className="grid grid-cols-3 gap-3">

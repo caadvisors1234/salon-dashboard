@@ -15,7 +15,7 @@ export async function HpbSection({ locationId }: { locationId: string }) {
     <section className="space-y-4">
       <SectionHeader
         title="HPB パフォーマンス"
-        description="Hot Pepper Beauty の主要指標"
+        description={hpbData.latestMonthLabel ? `Hot Pepper Beauty の主要指標（最新: ${hpbData.latestMonthLabel}）` : "Hot Pepper Beauty の主要指標"}
         icon={<Sparkles className="h-5 w-5" />}
       />
 

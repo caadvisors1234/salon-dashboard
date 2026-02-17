@@ -12,8 +12,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import type { ClientSummary } from "@/types/dashboard";
+import { formatYearMonthLabel } from "@/lib/dashboard/utils";
 
-export function ClientListTable({ clients }: { clients: ClientSummary[] }) {
+export function ClientListTable({ clients, targetMonth }: { clients: ClientSummary[]; targetMonth: string }) {
+  const monthLabel = formatYearMonthLabel(targetMonth);
   return (
     <Card>
       <CardHeader>
@@ -32,9 +34,9 @@ export function ClientListTable({ clients }: { clients: ClientSummary[] }) {
               <TableRow>
                 <TableHead>クライアント名</TableHead>
                 <TableHead className="text-right">店舗数</TableHead>
-                <TableHead className="text-right">前月閲覧数</TableHead>
-                <TableHead className="text-right">前月アクション数</TableHead>
-                <TableHead className="text-right">前月平均評価</TableHead>
+                <TableHead className="text-right">閲覧数（{monthLabel}）</TableHead>
+                <TableHead className="text-right">アクション数（{monthLabel}）</TableHead>
+                <TableHead className="text-right">平均評価（{monthLabel}）</TableHead>
                 <TableHead className="text-right">HPBアップロード率</TableHead>
               </TableRow>
             </TableHeader>

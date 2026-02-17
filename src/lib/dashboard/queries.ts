@@ -32,12 +32,18 @@ function getCurrentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/** 当月の期間ラベルを生成（月途中なら "○月1日〜○日"、完了月なら undefined） */
-function getCurrentPeriodLabel(): string | undefined {
+/** 当月の期間ラベルを生成（月途中なら短縮版+完全版、完了月なら undefined） */
+function getCurrentPeriodLabel(): { short: string; full: string } | undefined {
   const now = new Date();
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  if (now.getDate() < endOfMonth.getDate()) {
-    return `${now.getMonth() + 1}月1日〜${now.getDate()}日`;
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const endOfMonth = new Date(year, now.getMonth() + 1, 0);
+  if (day < endOfMonth.getDate()) {
+    return {
+      short: `${month}月1日〜${day}日`,
+      full: `${year}年${month}月1日〜${day}日`,
+    };
   }
   return undefined;
 }
@@ -50,7 +56,7 @@ function today(): string {
 
 // --- クライアント一覧サマリー ---
 
-export async function getClientSummaries(): Promise<ClientSummary[]> {
+export async function getClientSummaries(): Promise<{ clients: ClientSummary[]; targetMonth: string }> {
   const supabase = await createClient();
   const currentYM = getCurrentMonth();
   const prevYM = getPreviousMonth(currentYM);
@@ -63,7 +69,7 @@ export async function getClientSummaries(): Promise<ClientSummary[]> {
     .select("id, name")
     .order("name");
 
-  if (!orgs || orgs.length === 0) return [];
+  if (!orgs || orgs.length === 0) return { clients: [], targetMonth: prevYM };
 
   const orgIds = orgs.map((o) => o.id);
 
@@ -99,7 +105,7 @@ export async function getClientSummaries(): Promise<ClientSummary[]> {
     .in("location_id", locationIds);
 
   // org 別に集計
-  return orgs.map((org) => {
+  const clients = orgs.map((org) => {
     const orgLocations = activeLocations.filter((l) => l.org_id === org.id);
     const orgLocationIds = new Set(orgLocations.map((l) => l.id));
 
@@ -162,6 +168,8 @@ export async function getClientSummaries(): Promise<ClientSummary[]> {
       hpbUploadRate,
     };
   });
+
+  return { clients, targetMonth: prevYM };
 }
 
 // --- 店舗一覧サマリー ---
@@ -169,6 +177,7 @@ export async function getClientSummaries(): Promise<ClientSummary[]> {
 export async function getLocationSummaries(orgId: string): Promise<{
   orgName: string;
   locations: LocationSummary[];
+  targetMonth: string;
 }> {
   const supabase = await createClient();
   const currentYM = getCurrentMonth();
@@ -190,7 +199,7 @@ export async function getLocationSummaries(orgId: string): Promise<{
     .order("name");
 
   if (!locations || locations.length === 0) {
-    return { orgName: org?.name || "", locations: [] };
+    return { orgName: org?.name || "", locations: [], targetMonth: prevYM };
   }
 
   const locationIds = locations.map((l) => l.id);
@@ -230,6 +239,7 @@ export async function getLocationSummaries(orgId: string): Promise<{
         latestReviewCount: latestRating?.review_count ?? null,
       };
     }),
+    targetMonth: prevYM,
   };
 }
 
@@ -294,6 +304,10 @@ export async function getGbpKpiData(locationId: string): Promise<GbpKpiData> {
   const prevRatingVal = prevRating?.[0]?.rating ?? null;
   const prevReviewCount = prevRating?.[0]?.review_count ?? null;
 
+  // 期間情報の組み立て
+  const currentPeriodLabel = periodLabel?.full ?? formatYearMonthLabel(currentYM);
+  const previousMonthLabel = formatYearMonthLabel(prevYM);
+
   return {
     rating: {
       label: "総合評価",
@@ -314,14 +328,19 @@ export async function getGbpKpiData(locationId: string): Promise<GbpKpiData> {
       value: curImpressions,
       format: "integer",
       trend: buildTrend(curImpressions, prevImpressions),
-      periodLabel,
+      periodLabel: periodLabel?.short,
     },
     totalActions: {
       label: "合計アクション数",
       value: curActions,
       format: "integer",
       trend: buildTrend(curActions, prevActions),
-      periodLabel,
+      periodLabel: periodLabel?.short,
+    },
+    periodInfo: {
+      currentPeriodLabel,
+      previousMonthLabel,
+      description: `当月（${currentPeriodLabel}）と前月（${previousMonthLabel}）の比較`,
     },
   };
 }
@@ -531,7 +550,9 @@ export async function getHpbData(locationId: string): Promise<HpbData> {
       }
     : null;
 
-  return { kpi, timeSeries, uploadInfo, hasData: true };
+  const latestMonthLabel = formatYearMonthLabel(normalizeYearMonth(latest.year_month));
+
+  return { kpi, timeSeries, uploadInfo, hasData: true, latestMonthLabel };
 }
 
 // --- 店舗情報取得 ---
