@@ -42,3 +42,10 @@ export function isLocked(jobType: string): boolean {
 export function getLockedJobs(): string[] {
   return [...runningJobs];
 }
+
+/**
+ * 全てのロックをクリアする（テスト用）。
+ */
+export function clearAllLocks(): void {
+  runningJobs.clear();
+}
