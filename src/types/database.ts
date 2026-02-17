@@ -158,6 +158,51 @@ export type Database = {
           },
         ]
       }
+      hpb_deletion_logs: {
+        Row: {
+          deleted_at: string
+          deleted_by: string
+          id: string
+          location_id: string
+          reason: string | null
+          record_count: number
+          year_months: string[]
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by: string
+          id?: string
+          location_id: string
+          reason?: string | null
+          record_count: number
+          year_months: string[]
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string
+          id?: string
+          location_id?: string
+          reason?: string | null
+          record_count?: number
+          year_months?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hpb_deletion_logs_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hpb_deletion_logs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hpb_monthly_metrics: {
         Row: {
           acr: number | null

@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { UploadForm } from "@/components/hpb/upload-form";
+import { DeleteForm } from "@/components/hpb/delete-form";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -52,6 +53,15 @@ export default async function HpbUploadPage() {
       <h2 className="text-2xl font-bold">HPBデータアップロード</h2>
 
       <UploadForm locations={locationOptions} />
+
+      {/* HPBデータ削除 */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold">HPBデータ削除</h3>
+        <p className="text-sm text-muted-foreground">
+          誤ってアップロードしたデータを月単位で削除できます。削除後に正しい店舗へ再アップロードしてください。
+        </p>
+        <DeleteForm locations={locationOptions} />
+      </div>
 
       {/* アップロード履歴 */}
       <div className="space-y-3">
@@ -113,6 +123,8 @@ function StatusBadge({ status }: { status: string }) {
       return <Badge variant="secondary">一部</Badge>;
     case "failure":
       return <Badge variant="destructive">失敗</Badge>;
+    case "deleted":
+      return <Badge variant="outline" className="border-destructive text-destructive">削除済</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
