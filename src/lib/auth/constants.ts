@@ -1,9 +1,11 @@
 // 未認証でもアクセス可能なパス
+// /report はPuppeteer PDF生成用（report_token cookieで独自認証）
 export const PUBLIC_PATHS = [
   "/login",
   "/auth/confirm",
   "/auth/reset-password",
   "/auth/set-password",
+  "/report",
 ];
 
 // ログイン後のデフォルト遷移先（全ロール共通）
