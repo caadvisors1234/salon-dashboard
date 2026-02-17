@@ -179,9 +179,9 @@ function SidebarNav({ user, onNavClick }: { user: AuthUser; onNavClick?: () => v
   );
 }
 
-function LogoArea() {
+function LogoArea(props: React.ComponentProps<"div">) {
   return (
-    <div className="flex h-14 items-center gap-3 border-b px-4">
+    <div className="flex h-14 items-center gap-3 border-b px-4" {...props}>
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
         <BarChart3 className="h-4 w-4" />
       </div>
