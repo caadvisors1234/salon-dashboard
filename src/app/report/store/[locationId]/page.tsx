@@ -54,6 +54,11 @@ export default async function StoreReportPage({ params, searchParams }: Props) {
     );
   }
 
+  // キーワードデータは前月分が最新（GBP APIのデータ提供タイミング）
+  const [toYear, toMonth] = to.split("-").map(Number);
+  const kwPrevDate = new Date(Date.UTC(toYear, toMonth - 2, 1));
+  const keywordYearMonth = `${kwPrevDate.getUTCFullYear()}-${String(kwPrevDate.getUTCMonth() + 1).padStart(2, "0")}`;
+
   // データ取得（並列）
   const [locationInfo, kpiData, timeSeries, deviceBreakdown, keywords, hpbData] =
     await Promise.all([
@@ -61,7 +66,7 @@ export default async function StoreReportPage({ params, searchParams }: Props) {
       getReportGbpKpiData(locationId, to),
       getReportMetricsTimeSeries(locationId, from, to),
       getReportDeviceBreakdown(locationId, to),
-      getReportKeywordRanking(locationId, to),
+      getReportKeywordRanking(locationId, keywordYearMonth),
       getReportHpbData(locationId),
     ]);
 
