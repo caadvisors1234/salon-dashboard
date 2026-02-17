@@ -104,10 +104,12 @@ export function getPreviousMonth(now?: Date): { year: number; month: number; yea
  * 月次バッチジョブを実行する
  * @param targetYear 取得対象年。省略時は前月から算出
  * @param targetMonth 取得対象月。省略時は前月から算出
+ * @param targetLocationIds 指定時は対象ロケーションをフィルタリング
  */
 export async function runMonthlyJob(
   targetYear?: number,
-  targetMonth?: number
+  targetMonth?: number,
+  targetLocationIds?: string[]
 ): Promise<MonthlyJobResult> {
   const prev = getPreviousMonth();
   const year = targetYear ?? prev.year;
@@ -116,7 +118,10 @@ export async function runMonthlyJob(
 
   console.log(`[MonthlyJob] Starting monthly batch for ${yearMonth}`);
 
-  const locations = await getTargetLocations();
+  let locations = await getTargetLocations();
+  if (targetLocationIds && targetLocationIds.length > 0) {
+    locations = locations.filter((l) => targetLocationIds.includes(l.id));
+  }
   if (locations.length === 0) {
     console.log("[MonthlyJob] No target locations found");
     return {

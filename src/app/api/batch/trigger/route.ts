@@ -1,24 +1,32 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest, after } from "next/server";
 import { getSession } from "@/lib/auth/guards";
 import { logJobStart, logJobComplete, logJobError } from "@/lib/batch/logger";
 import { acquireLock, releaseLock, isLocked } from "@/lib/batch/lock";
 import { runDailyJob } from "@/lib/batch/jobs/daily";
 import { runMonthlyJob } from "@/lib/batch/jobs/monthly";
 import { runBackfillJob } from "@/lib/batch/jobs/backfill";
+import { runInitialBackfill } from "@/lib/batch/jobs/initial-backfill";
 
-type JobType = "daily" | "monthly" | "backfill";
+type JobType = "daily" | "monthly" | "backfill" | "initial-backfill";
 
-const JOB_TYPE_MAP: Record<JobType, string> = {
+const JOB_TYPE_MAP: Record<string, string> = {
   daily: "daily_batch_manual",
   monthly: "monthly_batch_manual",
   backfill: "backfill_manual",
 };
 
+function getLockKey(jobType: JobType, locationId?: string): string {
+  if (jobType === "initial-backfill") {
+    return `initial_backfill_${locationId}`;
+  }
+  return JOB_TYPE_MAP[jobType];
+}
+
 /**
  * POST /api/batch/trigger
  * Admin がバッチを手動で即時実行する。
  *
- * Body: { jobType: "daily" | "monthly" | "backfill", targetDate?: string }
+ * Body: { jobType: "daily" | "monthly" | "backfill" | "initial-backfill", targetDate?: string, backfillDays?: number, locationId?: string }
  */
 export async function POST(request: NextRequest) {
   const session = await getSession();
@@ -29,7 +37,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { jobType?: string; targetDate?: string };
+  let body: { jobType?: string; targetDate?: string; backfillDays?: number; locationId?: string };
   try {
     body = await request.json();
   } catch {
@@ -39,16 +47,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { jobType, targetDate } = body;
+  const { jobType, targetDate, backfillDays, locationId } = body;
 
-  if (!jobType || !["daily", "monthly", "backfill"].includes(jobType)) {
+  if (
+    !jobType ||
+    !["daily", "monthly", "backfill", "initial-backfill"].includes(jobType)
+  ) {
     return NextResponse.json(
-      { error: "jobType は 'daily', 'monthly', 'backfill' のいずれかを指定してください" },
+      {
+        error:
+          "jobType は 'daily', 'monthly', 'backfill', 'initial-backfill' のいずれかを指定してください",
+      },
       { status: 400 }
     );
   }
 
-  const lockKey = JOB_TYPE_MAP[jobType as JobType];
+  if (jobType === "initial-backfill" && !locationId) {
+    return NextResponse.json(
+      { error: "initial-backfill には locationId が必要です" },
+      { status: 400 }
+    );
+  }
+
+  const lockKey = getLockKey(jobType as JobType, locationId);
 
   // 重複防止
   if (isLocked(lockKey)) {
@@ -65,6 +86,46 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // initial-backfill は長時間かかるためバックグラウンドで実行し即座にレスポンスを返す
+  if (jobType === "initial-backfill") {
+    let logId: string | undefined;
+    try {
+      logId = await logJobStart(lockKey, {
+        triggeredBy: session.email,
+        locationId,
+      });
+    } catch (err) {
+      releaseLock(lockKey);
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json(
+        { error: `バッチ実行に失敗しました: ${message}` },
+        { status: 500 }
+      );
+    }
+
+    after(async () => {
+      try {
+        const result = await runInitialBackfill(locationId!);
+        await logJobComplete(logId!, result as unknown as Record<string, unknown>);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (logId) {
+          await logJobError(logId, message);
+        }
+      } finally {
+        releaseLock(lockKey);
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      jobType,
+      logId,
+      message: "バックフィルをバックグラウンドで開始しました",
+    });
+  }
+
+  // 同期実行ジョブ（daily / monthly / backfill）
   let logId: string | undefined;
   try {
     logId = await logJobStart(lockKey, {
@@ -88,7 +149,7 @@ export async function POST(request: NextRequest) {
         break;
       }
       case "backfill":
-        result = await runBackfillJob();
+        result = await runBackfillJob(backfillDays);
         break;
     }
 

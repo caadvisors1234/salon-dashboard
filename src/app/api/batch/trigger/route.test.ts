@@ -3,6 +3,12 @@ import { NextRequest } from "next/server";
 import { mockUsers } from "@/test/helpers/mock-auth";
 import { clearAllLocks } from "@/lib/batch/lock";
 
+const mockAfter = vi.fn((fn: () => void) => fn());
+vi.mock("next/server", async (importOriginal) => {
+  const original = await importOriginal<typeof import("next/server")>();
+  return { ...original, after: (...args: unknown[]) => mockAfter(...args) };
+});
+
 const mockGetSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   getSession: () => mockGetSession(),
@@ -17,6 +23,7 @@ vi.mock("@/lib/batch/logger", () => ({
 const mockRunDailyJob = vi.fn();
 const mockRunMonthlyJob = vi.fn();
 const mockRunBackfillJob = vi.fn();
+const mockRunInitialBackfill = vi.fn();
 vi.mock("@/lib/batch/jobs/daily", () => ({
   runDailyJob: (...args: unknown[]) => mockRunDailyJob(...args),
 }));
@@ -25,6 +32,9 @@ vi.mock("@/lib/batch/jobs/monthly", () => ({
 }));
 vi.mock("@/lib/batch/jobs/backfill", () => ({
   runBackfillJob: (...args: unknown[]) => mockRunBackfillJob(...args),
+}));
+vi.mock("@/lib/batch/jobs/initial-backfill", () => ({
+  runInitialBackfill: (...args: unknown[]) => mockRunInitialBackfill(...args),
 }));
 
 import { POST } from "./route";
@@ -43,6 +53,9 @@ describe("POST /api/batch/trigger", () => {
     mockRunDailyJob.mockReset();
     mockRunMonthlyJob.mockReset();
     mockRunBackfillJob.mockReset();
+    mockRunInitialBackfill.mockReset();
+    mockAfter.mockReset();
+    mockAfter.mockImplementation((fn: () => void) => fn());
     clearAllLocks();
   });
 
@@ -112,6 +125,65 @@ describe("POST /api/batch/trigger", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
+  });
+
+  it("400: initial-backfill で locationId なし", async () => {
+    mockGetSession.mockResolvedValue(mockUsers.admin);
+    const res = await POST(
+      createRequest({ jobType: "initial-backfill" })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("locationId");
+  });
+
+  it("200: initial-backfill 正常実行（バックグラウンド）", async () => {
+    mockGetSession.mockResolvedValue(mockUsers.admin);
+    mockRunInitialBackfill.mockResolvedValue({ locationId: "loc-1", backfill: {}, monthlyResults: [] });
+
+    const res = await POST(
+      createRequest({ jobType: "initial-backfill", locationId: "loc-1" })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.jobType).toBe("initial-backfill");
+    expect(body.message).toBeDefined();
+    expect(mockRunInitialBackfill).toHaveBeenCalledWith("loc-1");
+  });
+
+  it("initial-backfill は異なるロケーションで同時実行可能", async () => {
+    mockGetSession.mockResolvedValue(mockUsers.admin);
+    // after() をコールバック実行しないようにし、ロックが保持されたままにする
+    mockAfter.mockImplementation(() => {});
+    mockRunInitialBackfill.mockResolvedValue({});
+
+    const res1 = await POST(
+      createRequest({ jobType: "initial-backfill", locationId: "loc-1" })
+    );
+    expect(res1.status).toBe(200);
+
+    const res2 = await POST(
+      createRequest({ jobType: "initial-backfill", locationId: "loc-2" })
+    );
+    expect(res2.status).toBe(200);
+  });
+
+  it("initial-backfill は同じロケーションの重複実行を防止", async () => {
+    mockGetSession.mockResolvedValue(mockUsers.admin);
+    // after() をコールバック実行しないようにし、ロックが保持されたままにする
+    mockAfter.mockImplementation(() => {});
+    mockRunInitialBackfill.mockResolvedValue({});
+
+    const res1 = await POST(
+      createRequest({ jobType: "initial-backfill", locationId: "loc-1" })
+    );
+    expect(res1.status).toBe(200);
+
+    const res2 = await POST(
+      createRequest({ jobType: "initial-backfill", locationId: "loc-1" })
+    );
+    expect(res2.status).toBe(409);
   });
 
   it("500: ジョブ実行エラー", async () => {

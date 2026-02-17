@@ -1,8 +1,8 @@
 /**
- * 30日バックフィルジョブ
- * - 直近30日間の欠損日を検出
- * - 欠損データを API から取得して補完
- * - 30日超欠損はアラート発行
+ * バックフィルジョブ（デフォルト30日、指定日数まで対応）
+ * - 指定期間の欠損日を検出
+ * - 欠損データを API から取得して補完（日付範囲一括取得で最適化）
+ * - 指定日数超欠損はアラート発行
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createGbpClient } from "@/lib/gbp/client";
@@ -41,6 +41,41 @@ export interface BackfillJobResult {
   totalRatingDaysFilled: number;
   overdueLocations: OverdueLocation[];
   results: BackfillLocationResult[];
+}
+
+/**
+ * 連続する日付をグループ化する
+ * 例: ["2025-08-01", "2025-08-02", "2025-08-03", "2025-08-10"] →
+ *     [{ start: "2025-08-01", end: "2025-08-03" }, { start: "2025-08-10", end: "2025-08-10" }]
+ */
+export function groupConsecutiveDates(
+  dates: string[]
+): { start: string; end: string }[] {
+  if (dates.length === 0) return [];
+
+  const sorted = [...dates].sort();
+  const groups: { start: string; end: string }[] = [];
+  let start = sorted[0];
+  let prev = sorted[0];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const prevDate = new Date(prev + "T00:00:00");
+    const currDate = new Date(current + "T00:00:00");
+    const diffDays =
+      (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (diffDays === 1) {
+      prev = current;
+    } else {
+      groups.push({ start, end: prev });
+      start = current;
+      prev = current;
+    }
+  }
+  groups.push({ start, end: prev });
+
+  return groups;
 }
 
 /**
@@ -183,40 +218,48 @@ async function processLocation(
     };
   }
 
-  // daily_metrics のバックフィル
-  for (const date of missingMetricDates) {
+  // daily_metrics のバックフィル（連続日付を範囲グループ化して一括取得）
+  const metricRanges = groupConsecutiveDates(missingMetricDates);
+  for (const range of metricRanges) {
     try {
       const client = createGbpClient();
       const metrics = await fetchDailyMetrics(
         client,
         location.gbpLocationId,
-        date,
-        date
+        range.start,
+        range.end
       );
       await saveDailyMetrics(location.id, metrics);
-      filledMetricDays++;
+      // API が返した実際のユニーク日付数をカウント
+      const uniqueDates = new Set(metrics.map((m) => m.date));
+      filledMetricDays += uniqueDates.size;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`metrics ${date}: ${msg}`);
+      errors.push(`metrics ${range.start}~${range.end}: ${msg}`);
     }
   }
 
-  // rating_snapshots のバックフィル
-  if (gbpAccountId) {
-    for (const date of missingRatingDates) {
-      try {
-        const client = createGbpClient();
-        const rating = await fetchRatingSnapshot(
-          client,
-          gbpAccountId,
-          location.gbpLocationId
-        );
-        await saveRatingSnapshot(location.id, date, rating);
-        filledRatingDays++;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        errors.push(`rating ${date}: ${msg}`);
+  // rating_snapshots のバックフィル（1回だけAPI呼び出し、全欠損日に同じ値を保存）
+  if (gbpAccountId && missingRatingDates.length > 0) {
+    try {
+      const client = createGbpClient();
+      const rating = await fetchRatingSnapshot(
+        client,
+        gbpAccountId,
+        location.gbpLocationId
+      );
+      for (const date of missingRatingDates) {
+        try {
+          await saveRatingSnapshot(location.id, date, rating);
+          filledRatingDays++;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`rating ${date}: ${msg}`);
+        }
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`rating fetch: ${msg}`);
     }
   }
 
@@ -237,13 +280,20 @@ async function processLocation(
 /**
  * バックフィルジョブを実行する
  * @param backfillDaysOverride バックフィル対象日数（デフォルト: 30）
+ * @param targetLocationIds 指定時は対象ロケーションをフィルタリング
  */
-export async function runBackfillJob(backfillDaysOverride?: number): Promise<BackfillJobResult> {
+export async function runBackfillJob(
+  backfillDaysOverride?: number,
+  targetLocationIds?: string[]
+): Promise<BackfillJobResult> {
   const backfillDays = backfillDaysOverride ?? 30;
 
   console.log(`[BackfillJob] Starting backfill for last ${backfillDays} days`);
 
-  const locations = await getTargetLocations();
+  let locations = await getTargetLocations();
+  if (targetLocationIds && targetLocationIds.length > 0) {
+    locations = locations.filter((l) => targetLocationIds.includes(l.id));
+  }
   if (locations.length === 0) {
     console.log("[BackfillJob] No target locations found");
     return {

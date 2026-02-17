@@ -43,6 +43,33 @@ export function LocationCreateDialog({ orgId }: { orgId: string }) {
 
     if (result.success) {
       toast.success("店舗を追加しました");
+
+      // GBP Location ID が設定されている場合、バックグラウンドでデータ取得開始
+      if (gbpLocationId) {
+        fetch("/api/batch/trigger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobType: "initial-backfill",
+            locationId: result.data.id,
+          }),
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          })
+          .then((data) => {
+            if (data.success) {
+              toast.info("過去データの取得を開始しました（完了まで数分かかります）");
+            } else {
+              toast.error(`データ取得の開始に失敗しました: ${data.error}`);
+            }
+          })
+          .catch(() => {
+            toast.error("データ取得リクエストに失敗しました");
+          });
+      }
+
       resetForm();
       setOpen(false);
     } else {
