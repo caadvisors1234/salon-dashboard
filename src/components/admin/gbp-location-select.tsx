@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Select,
   SelectContent,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { LocationStatus } from "@/lib/gbp/types";
 
 type GbpLocationOption = {
   accountId: string;
@@ -18,6 +19,8 @@ type GbpLocationOption = {
   locationName: string | null;
   placeId: string | null;
   address: string | null;
+  status: LocationStatus;
+  statusLabel: string;
 };
 
 type Props = {
@@ -67,6 +70,28 @@ export function GbpLocationSelect({
     fetchData();
   }, []);
 
+  const activeLocations = useMemo(
+    () => locations.filter((loc) => loc.status === "verified"),
+    [locations]
+  );
+
+  const excludedLocations = useMemo(
+    () => locations.filter((loc) => loc.status !== "verified"),
+    [locations]
+  );
+
+  const excludedSummary = useMemo(() => {
+    if (excludedLocations.length === 0) return null;
+    const counts: Record<string, number> = {};
+    for (const loc of excludedLocations) {
+      counts[loc.statusLabel] = (counts[loc.statusLabel] || 0) + 1;
+    }
+    const parts = Object.entries(counts).map(
+      ([label, count]) => `${label}: ${count}`
+    );
+    return `※ ${excludedLocations.length}件のロケーションが非表示です（${parts.join(", ")}）`;
+  }, [excludedLocations]);
+
   // GBP 未接続の場合は従来のテキスト入力を表示
   if (!loading && !connected) {
     return (
@@ -93,13 +118,16 @@ export function GbpLocationSelect({
     );
   }
 
+  const isOrphanValue =
+    value !== "" && !activeLocations.some((l) => l.locationId === value);
+
   const handleSelect = (selectedLocationId: string) => {
     if (selectedLocationId === "__none__") {
       onChange("", "");
       return;
     }
 
-    const loc = locations.find((l) => l.locationId === selectedLocationId);
+    const loc = activeLocations.find((l) => l.locationId === selectedLocationId);
     if (loc) {
       onChange(loc.locationId, loc.placeId || "");
     }
@@ -121,7 +149,12 @@ export function GbpLocationSelect({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">未設定</SelectItem>
-            {locations.map((loc) => (
+            {isOrphanValue && (
+              <SelectItem value={value} disabled>
+                {value}（無効なロケーション）
+              </SelectItem>
+            )}
+            {activeLocations.map((loc) => (
               <SelectItem key={loc.locationId} value={loc.locationId}>
                 {loc.locationName || loc.locationId}
                 {loc.address ? ` (${loc.address})` : ""}
@@ -133,7 +166,11 @@ export function GbpLocationSelect({
           <p className="text-xs text-muted-foreground">
             Location ID: {value}
             {placeIdValue ? ` / Place ID: ${placeIdValue}` : ""}
+            {isOrphanValue && " — このロケーションは現在無効です。「未設定」を選択して解除できます"}
           </p>
+        )}
+        {excludedSummary && (
+          <p className="text-xs text-muted-foreground">{excludedSummary}</p>
         )}
       </div>
     </>

@@ -109,8 +109,47 @@ export interface GbpLocation {
   };
   metadata?: {
     placeId?: string;
+    duplicateLocation?: string;
+    hasVoiceOfMerchant?: boolean;
+    mapsUri?: string;
+  };
+  openInfo?: {
+    status?: "OPEN" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | "OPEN_FOR_BUSINESS_UNSPECIFIED";
+    canReopen?: boolean;
   };
 }
+
+// ============================================
+// Voice of Merchant State (Verifications API)
+// ============================================
+
+export interface VoiceOfMerchantState {
+  hasVoiceOfMerchant?: boolean;
+  hasBusinessAuthority?: boolean;
+  verify?: { hasPendingVerification?: boolean };
+  resolveOwnershipConflict?: Record<string, never>;
+  complyWithGuidelines?: {
+    recommendationReason?: "BUSINESS_LOCATION_SUSPENDED" | "BUSINESS_LOCATION_DISABLED";
+  };
+  waitForVoiceOfMerchant?: Record<string, never>;
+}
+
+// ============================================
+// Location Status 型
+// ============================================
+
+export type LocationStatus =
+  | "verified"
+  | "duplicate"
+  | "suspended"
+  | "disabled"
+  | "needs_verification"
+  | "verification_pending"
+  | "under_review"
+  | "ownership_conflict"
+  | "closed_permanently"
+  | "closed_temporarily"
+  | "unknown";
 
 export interface LocationsListResponse {
   locations?: GbpLocation[];
@@ -171,6 +210,7 @@ export const GBP_API = {
   ACCOUNTS_BASE: "https://mybusinessaccountmanagement.googleapis.com/v1",
   BUSINESS_INFO_BASE:
     "https://mybusinessbusinessinformation.googleapis.com/v1",
+  VERIFICATIONS_BASE: "https://mybusinessverifications.googleapis.com/v1",
   OAUTH_TOKEN_URL: "https://oauth2.googleapis.com/token",
   OAUTH_AUTH_URL: "https://accounts.google.com/o/oauth2/v2/auth",
   USERINFO_URL: "https://openidconnect.googleapis.com/v1/userinfo",

@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { GBP_API, type GbpAccount, type AccountsListResponse, type GbpLocation, type LocationsListResponse } from "./types";
+import { GBP_API, type GbpAccount, type AccountsListResponse, type GbpLocation, type LocationsListResponse, type VoiceOfMerchantState } from "./types";
 
 /**
  * GBP アカウント一覧を取得して gbp_accounts テーブルに保存する
@@ -83,7 +83,7 @@ export async function fetchGbpLocations(
   let pageToken: string | undefined;
 
   do {
-    const params = new URLSearchParams({ readMask: "name,title,storefrontAddress,metadata" });
+    const params = new URLSearchParams({ readMask: "name,title,storefrontAddress,metadata,openInfo" });
     if (pageToken) {
       params.set("pageToken", pageToken);
     }
@@ -108,4 +108,37 @@ export async function fetchGbpLocations(
   } while (pageToken);
 
   return allLocations;
+}
+
+/**
+ * ロケーションの VoiceOfMerchantState を取得する（Verifications API）
+ * エラー時は null を返す（安全側に倒す）
+ */
+export async function fetchVoiceOfMerchantState(
+  accessToken: string,
+  locationId: string
+): Promise<VoiceOfMerchantState | null> {
+  try {
+    const response = await fetch(
+      `${GBP_API.VERIFICATIONS_BASE}/locations/${locationId}/VoiceOfMerchantState`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        `Failed to fetch VoiceOfMerchantState for ${locationId}: ${response.status}`
+      );
+      return null;
+    }
+
+    return await response.json();
+  } catch (err) {
+    console.error(
+      `Error fetching VoiceOfMerchantState for ${locationId}:`,
+      err
+    );
+    return null;
+  }
 }
