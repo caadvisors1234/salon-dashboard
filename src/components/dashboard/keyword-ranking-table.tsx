@@ -78,7 +78,21 @@ export function KeywordRankingTable({
                 {result.rows.map((row) => (
                   <TableRow key={row.keyword}>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {row.rank}
+                      {row.rank <= 3 ? (
+                        <span
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                            row.rank === 1
+                              ? "bg-amber-100 text-amber-700"
+                              : row.rank === 2
+                                ? "bg-slate-100 text-slate-600"
+                                : "bg-orange-100 text-orange-600"
+                          }`}
+                        >
+                          {row.rank}
+                        </span>
+                      ) : (
+                        row.rank
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{row.keyword}</TableCell>
                     <TableCell className="text-right tabular-nums">

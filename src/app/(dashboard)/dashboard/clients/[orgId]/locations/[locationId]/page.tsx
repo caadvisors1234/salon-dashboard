@@ -62,7 +62,7 @@ export default async function LocationDetailPage({
           />
           <ReportDialog type="store" locationId={locationId} />
         </div>
-        <h1 className="text-2xl font-bold">{locationInfo.locationName}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{locationInfo.locationName}</h1>
       </div>
 
       <LocationDashboard

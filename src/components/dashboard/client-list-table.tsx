@@ -44,7 +44,7 @@ export function ClientListTable({ clients }: { clients: ClientSummary[] }) {
                   <TableCell>
                     <Link
                       href={`/dashboard/clients/${client.orgId}`}
-                      className="font-medium text-primary hover:underline"
+                      className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
                     >
                       {client.orgName}
                     </Link>

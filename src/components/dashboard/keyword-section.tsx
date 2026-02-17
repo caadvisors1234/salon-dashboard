@@ -1,4 +1,6 @@
+import { Search } from "lucide-react";
 import { getKeywordRanking } from "@/lib/dashboard/queries";
+import { SectionHeader } from "./section-header";
 import { KeywordRankingTable } from "./keyword-ranking-table";
 
 export async function KeywordSection({
@@ -12,7 +14,11 @@ export async function KeywordSection({
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold">検索キーワードランキング</h2>
+      <SectionHeader
+        title="検索キーワードランキング"
+        description="Google 検索で表示されたキーワード"
+        icon={<Search className="h-5 w-5" />}
+      />
       <KeywordRankingTable initialResult={result} locationId={locationId} yearMonth={yearMonth} />
     </section>
   );

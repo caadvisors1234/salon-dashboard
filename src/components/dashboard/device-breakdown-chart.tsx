@@ -4,6 +4,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Label,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,6 +15,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart";
+import { ChartEmptyState } from "./chart-empty-state";
 import type { DeviceBreakdownItem } from "@/types/dashboard";
 
 const chartConfig = {
@@ -50,13 +52,13 @@ export function DeviceBreakdownChart({ data, monthLabel }: { data: DeviceBreakdo
   }));
 
   return (
-    <Card>
+    <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
         <CardTitle className="text-base">デバイス内訳（{monthLabel}）</CardTitle>
       </CardHeader>
       <CardContent>
         {total === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">データがありません</p>
+          <ChartEmptyState />
         ) : (
           <ChartContainer config={chartConfig} className="h-[280px] w-full">
             <PieChart accessibilityLayer>
@@ -77,6 +79,23 @@ export function DeviceBreakdownChart({ data, monthLabel }: { data: DeviceBreakdo
                 {chartData.map((item, index) => (
                   <Cell key={index} fill={`var(--color-${item.key})`} />
                 ))}
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                          <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-bold">
+                            {total.toLocaleString("ja-JP")}
+                          </tspan>
+                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-muted-foreground text-xs">
+                            合計
+                          </tspan>
+                        </text>
+                      );
+                    }
+                    return null;
+                  }}
+                />
               </Pie>
               <ChartTooltip
                 content={

@@ -49,7 +49,7 @@ export function LocationListTable({
                   <TableCell>
                     <Link
                       href={`/dashboard/clients/${orgId}/locations/${loc.locationId}`}
-                      className="font-medium text-primary hover:underline"
+                      className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
                     >
                       {loc.locationName}
                     </Link>

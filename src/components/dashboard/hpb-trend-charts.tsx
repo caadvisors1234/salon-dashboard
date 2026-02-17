@@ -1,11 +1,13 @@
 "use client";
 
+import { useId } from "react";
 import {
-  LineChart,
+  Area,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
+  ComposedChart,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -16,6 +18,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart";
+import { ChartEmptyState } from "./chart-empty-state";
 import type { HpbMonthlyPoint } from "@/types/dashboard";
 
 const pvChartConfig = {
@@ -33,7 +36,7 @@ const acrChartConfig = {
   acrAreaAvg: { label: "エリア平均", color: "var(--color-chart-3)" },
 } satisfies ChartConfig;
 
-function HpbLineChart({
+function HpbComposedChart({
   data,
   title,
   dataKey,
@@ -48,28 +51,39 @@ function HpbLineChart({
   yAxisLabel?: string;
   config: ChartConfig;
 }) {
+  const uid = useId().replace(/:/g, "");
+  const gradientId = `${uid}-fill-${String(dataKey)}`;
+
   return (
-    <Card>
+    <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
         <CardTitle className="text-base">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">データがありません</p>
+          <ChartEmptyState />
         ) : (
           <ChartContainer config={config} className="h-[250px] w-full">
-            <LineChart accessibilityLayer data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+            <ComposedChart accessibilityLayer data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={`var(--color-${String(dataKey)})`} stopOpacity={0.15} />
+                  <stop offset="100%" stopColor={`var(--color-${String(dataKey)})`} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeOpacity={0.5} />
               <XAxis dataKey="label" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: "insideLeft", style: { fontSize: 11 } } : undefined} />
               <ChartTooltip content={<ChartTooltipContent />} />
               <ChartLegend content={<ChartLegendContent />} />
-              <Line
+              <Area
                 type="monotone"
                 dataKey={dataKey}
                 stroke={`var(--color-${String(dataKey)})`}
+                fill={`url(#${gradientId})`}
                 strokeWidth={2}
-                dot={{ r: 3 }}
+                dot={{ r: 3, fill: "var(--color-background)" }}
+                activeDot={{ r: 6, strokeWidth: 2 }}
               />
               <Line
                 type="monotone"
@@ -80,7 +94,7 @@ function HpbLineChart({
                 dot={{ r: 3 }}
                 opacity={0.6}
               />
-            </LineChart>
+            </ComposedChart>
           </ChartContainer>
         )}
       </CardContent>
@@ -91,7 +105,7 @@ function HpbLineChart({
 export function HpbTrendCharts({ data }: { data: HpbMonthlyPoint[] }) {
   return (
     <div className="space-y-4">
-      <HpbLineChart
+      <HpbComposedChart
         data={data}
         title="サロン情報PV数推移"
         dataKey="salonPv"
@@ -101,7 +115,7 @@ export function HpbTrendCharts({ data }: { data: HpbMonthlyPoint[] }) {
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <HpbLineChart
+        <HpbComposedChart
           data={data}
           title="CVR推移"
           dataKey="cvr"
@@ -109,7 +123,7 @@ export function HpbTrendCharts({ data }: { data: HpbMonthlyPoint[] }) {
           yAxisLabel="%"
           config={cvrChartConfig}
         />
-        <HpbLineChart
+        <HpbComposedChart
           data={data}
           title="ACR推移"
           dataKey="acr"

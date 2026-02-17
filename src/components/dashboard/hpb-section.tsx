@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Upload } from "lucide-react";
+import { Upload, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getHpbData } from "@/lib/dashboard/queries";
+import { SectionHeader } from "./section-header";
 import { HpbDataFreshness } from "./hpb-data-freshness";
 import { HpbKpiCards } from "./hpb-kpi-cards";
 import { HpbTrendCharts } from "./hpb-trend-charts";
@@ -12,7 +13,11 @@ export async function HpbSection({ locationId }: { locationId: string }) {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold">HPB パフォーマンス</h2>
+      <SectionHeader
+        title="HPB パフォーマンス"
+        description="Hot Pepper Beauty の主要指標"
+        icon={<Sparkles className="h-5 w-5" />}
+      />
 
       {!hpbData.hasData ? (
         <Card>

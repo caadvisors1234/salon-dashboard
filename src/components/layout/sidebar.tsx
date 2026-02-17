@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Building2, Upload, Settings, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, Users, Building2, Upload, Settings, LogOut, Menu, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -20,7 +20,7 @@ import { useState } from "react";
 type NavItem = {
   label: string;
   href: string;
-  icon: React.ReactNode;
+  icon: React.ElementType;
   adminOnly?: boolean;
   /** Admin / Staff のみ表示 */
   roles?: string[];
@@ -32,31 +32,31 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "ダッシュボード",
     href: "/dashboard",
-    icon: <LayoutDashboard className="h-4 w-4" />,
+    icon: LayoutDashboard,
     matchPath: (p) => p === "/dashboard" || p.startsWith("/dashboard/clients"),
   },
   {
     label: "HPBアップロード",
     href: "/dashboard/hpb-upload",
-    icon: <Upload className="h-4 w-4" />,
+    icon: Upload,
     roles: ["admin", "staff"],
   },
   {
     label: "ユーザー管理",
     href: "/dashboard/admin/users",
-    icon: <Users className="h-4 w-4" />,
+    icon: Users,
     adminOnly: true,
   },
   {
     label: "クライアント管理",
     href: "/dashboard/admin/clients",
-    icon: <Building2 className="h-4 w-4" />,
+    icon: Building2,
     adminOnly: true,
   },
   {
     label: "システム設定",
     href: "/dashboard/admin/settings",
-    icon: <Settings className="h-4 w-4" />,
+    icon: Settings,
     adminOnly: true,
   },
 ];
@@ -68,31 +68,53 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 function NavLink({ item, isActive, onClick }: { item: NavItem; isActive: boolean; onClick?: () => void }) {
+  const Icon = item.icon;
   return (
     <Link
       href={item.href}
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ${
         isActive
-          ? "bg-accent text-accent-foreground font-medium"
+          ? "bg-accent font-medium text-accent-foreground"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       }`}
     >
-      {item.icon}
+      <div
+        className={`flex h-7 w-7 items-center justify-center rounded-md ${
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : ""
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
       {item.label}
     </Link>
   );
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(/[\s@]+/)
+    .slice(0, 2)
+    .map((s) => s[0] || "")
+    .join("")
+    .toUpperCase();
+}
+
 function UserInfo({ user }: { user: AuthUser }) {
+  const displayName = user.displayName || user.email;
   return (
     <div className="border-t p-3">
-      <div className="mb-2 px-3">
-        <p className="truncate text-sm font-medium">
-          {user.displayName || user.email}
-        </p>
-        <div className="mt-1 flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">
+      <div className="mb-2 flex items-center gap-3 px-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+          {getInitials(displayName)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">
+            {displayName}
+          </p>
+          <Badge variant="secondary" className="mt-0.5 text-xs">
             {ROLE_LABELS[user.role] || user.role}
           </Badge>
         </div>
@@ -157,15 +179,27 @@ function SidebarNav({ user, onNavClick }: { user: AuthUser; onNavClick?: () => v
   );
 }
 
+function LogoArea() {
+  return (
+    <div className="flex h-14 items-center gap-3 border-b px-4">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <BarChart3 className="h-4 w-4" />
+      </div>
+      <div>
+        <span className="text-sm font-semibold">GBP Dashboard</span>
+        <p className="text-[10px] leading-tight text-muted-foreground">Performance Analytics</p>
+      </div>
+    </div>
+  );
+}
+
 /** デスクトップ用サイドバー */
 export function Sidebar({ user }: { user: AuthUser }) {
   return (
     <aside className="hidden h-screen w-60 flex-col border-r bg-background md:flex">
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="text-sm font-semibold">
-          GBP Dashboard
-        </Link>
-      </div>
+      <Link href="/dashboard">
+        <LogoArea />
+      </Link>
       <SidebarNav user={user} />
     </aside>
   );
@@ -185,16 +219,21 @@ export function MobileHeader({ user }: { user: AuthUser }) {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-60 p-0">
-          <SheetHeader className="border-b px-4 py-4">
-            <SheetTitle className="text-sm">GBP Dashboard</SheetTitle>
+          <SheetHeader className="p-0">
+            <SheetTitle asChild>
+              <LogoArea />
+            </SheetTitle>
           </SheetHeader>
           <div className="flex flex-1 flex-col">
             <SidebarNav user={user} onNavClick={() => setOpen(false)} />
           </div>
         </SheetContent>
       </Sheet>
-      <Link href="/dashboard" className="ml-2 text-sm font-semibold">
-        GBP Dashboard
+      <Link href="/dashboard" className="ml-2 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <BarChart3 className="h-3.5 w-3.5" />
+        </div>
+        <span className="text-sm font-semibold">GBP Dashboard</span>
       </Link>
     </header>
   );

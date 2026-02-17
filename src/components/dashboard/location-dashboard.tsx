@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { BarChart3, TrendingUp } from "lucide-react";
 import { PeriodSelector, getDefaultPeriodRange } from "./period-selector";
+import { SectionHeader } from "./section-header";
 import { GbpKpiCards } from "./gbp-kpi-cards";
 import { ImpressionsChart } from "./impressions-chart";
 import { ActionsChart } from "./actions-chart";
@@ -13,8 +15,6 @@ import type {
   MonthlyMetricPoint,
   DeviceBreakdownItem,
   PeriodRange,
-  KeywordRankingResult,
-  HpbData,
 } from "@/types/dashboard";
 
 type LocationDashboardProps = {
@@ -66,19 +66,26 @@ export function LocationDashboard({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* GBP KPI カード */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold">GBP パフォーマンス</h2>
-        <GbpKpiCards data={gbpKpi} />
+        <SectionHeader
+          title="GBP パフォーマンス"
+          description="Google ビジネス プロフィールの主要指標"
+          icon={<BarChart3 className="h-5 w-5" />}
+        />
+        <div className="mt-4">
+          <GbpKpiCards data={gbpKpi} />
+        </div>
       </section>
 
       {/* 期間選択 + グラフ */}
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">推移グラフ</h2>
-          <PeriodSelector value={period} onChange={handlePeriodChange} />
-        </div>
+        <SectionHeader
+          title="推移グラフ"
+          icon={<TrendingUp className="h-5 w-5" />}
+          action={<PeriodSelector value={period} onChange={handlePeriodChange} />}
+        />
 
         {loading ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -1,8 +1,9 @@
 "use client";
 
+import { useId } from "react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,6 +17,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart";
+import { ChartEmptyState } from "./chart-empty-state";
 import type { MonthlyMetricPoint } from "@/types/dashboard";
 
 const chartConfig = {
@@ -40,34 +42,45 @@ const SERIES = [
 ] as const;
 
 export function ActionsChart({ data }: { data: MonthlyMetricPoint[] }) {
+  const uid = useId().replace(/:/g, "");
+
   return (
-    <Card>
+    <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
         <CardTitle className="text-base">アクション指標推移</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">データがありません</p>
+          <ChartEmptyState />
         ) : (
           <ChartContainer config={chartConfig} className="h-[300px] w-full">
-            <LineChart accessibilityLayer data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+            <AreaChart accessibilityLayer data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <defs>
+                {SERIES.map((s) => (
+                  <linearGradient key={s.key} id={`${uid}-fill-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={`var(--color-${s.key})`} stopOpacity={0.15} />
+                    <stop offset="100%" stopColor={`var(--color-${s.key})`} stopOpacity={0} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid vertical={false} strokeOpacity={0.5} />
               <XAxis dataKey="label" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <ChartTooltip content={<ChartTooltipContent />} />
               <ChartLegend content={<ChartLegendContent />} />
               {SERIES.map((s) => (
-                <Line
+                <Area
                   key={s.key}
                   type="monotone"
                   dataKey={s.key}
                   stroke={`var(--color-${s.key})`}
+                  fill={`url(#${uid}-fill-${s.key})`}
                   strokeWidth={2}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
+                  dot={{ r: 3, fill: "var(--color-background)" }}
+                  activeDot={{ r: 6, strokeWidth: 2 }}
                 />
               ))}
-            </LineChart>
+            </AreaChart>
           </ChartContainer>
         )}
       </CardContent>
