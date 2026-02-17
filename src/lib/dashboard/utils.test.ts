@@ -5,7 +5,9 @@ import {
   monthEnd,
   formatYearMonthLabel,
   normalizeYearMonth,
+  generateMonthRange,
   buildTrend,
+  pivotMonthlyMetrics,
   IMPRESSION_TYPES,
   ACTION_TYPES,
 } from "./utils";
@@ -90,6 +92,31 @@ describe("normalizeYearMonth", () => {
   });
 });
 
+describe("generateMonthRange", () => {
+  it("同一月 → 1要素", () => {
+    expect(generateMonthRange("2025-03", "2025-03")).toEqual(["2025-03"]);
+  });
+
+  it("3ヶ月範囲", () => {
+    expect(generateMonthRange("2025-01", "2025-03")).toEqual([
+      "2025-01", "2025-02", "2025-03",
+    ]);
+  });
+
+  it("年をまたぐ範囲", () => {
+    expect(generateMonthRange("2024-11", "2025-02")).toEqual([
+      "2024-11", "2024-12", "2025-01", "2025-02",
+    ]);
+  });
+
+  it("12ヶ月範囲", () => {
+    const result = generateMonthRange("2025-03", "2026-02");
+    expect(result).toHaveLength(12);
+    expect(result[0]).toBe("2025-03");
+    expect(result[11]).toBe("2026-02");
+  });
+});
+
 describe("buildTrend", () => {
   it("current が null → unavailable", () => {
     const result = buildTrend(null, 100);
@@ -152,5 +179,57 @@ describe("buildTrend", () => {
   it("both null", () => {
     const result = buildTrend(null, null);
     expect(result.direction).toBe("unavailable");
+  });
+});
+
+describe("pivotMonthlyMetrics", () => {
+  it("データなし月は0埋めされる", () => {
+    const result = pivotMonthlyMetrics([], ["2025-03", "2025-04", "2025-05"]);
+    expect(result).toHaveLength(3);
+    for (const point of result) {
+      expect(point.impressionsDesktopSearch).toBe(0);
+      expect(point.impressionsMobileSearch).toBe(0);
+      expect(point.impressionsDesktopMaps).toBe(0);
+      expect(point.impressionsMobileMaps).toBe(0);
+      expect(point.callClicks).toBe(0);
+      expect(point.directionRequests).toBe(0);
+      expect(point.websiteClicks).toBe(0);
+    }
+    expect(result[0].yearMonth).toBe("2025-03");
+    expect(result[0].label).toBe("2025年3月");
+  });
+
+  it("集計行が正しいフィールドにマッピングされる", () => {
+    const rows = [
+      { year_month: "2025-03", metric_type: "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH", total_value: 100 },
+      { year_month: "2025-03", metric_type: "CALL_CLICKS", total_value: 25 },
+      { year_month: "2025-04", metric_type: "WEBSITE_CLICKS", total_value: 50 },
+      { year_month: "2025-04", metric_type: "BUSINESS_DIRECTION_REQUESTS", total_value: 30 },
+      { year_month: "2025-04", metric_type: "BUSINESS_IMPRESSIONS_MOBILE_MAPS", total_value: 200 },
+    ];
+    const result = pivotMonthlyMetrics(rows, ["2025-03", "2025-04"]);
+    expect(result).toHaveLength(2);
+
+    expect(result[0].impressionsDesktopSearch).toBe(100);
+    expect(result[0].callClicks).toBe(25);
+    expect(result[0].websiteClicks).toBe(0);
+
+    expect(result[1].websiteClicks).toBe(50);
+    expect(result[1].directionRequests).toBe(30);
+    expect(result[1].impressionsMobileMaps).toBe(200);
+    expect(result[1].impressionsDesktopSearch).toBe(0);
+  });
+
+  it("範囲外の月データは無視される", () => {
+    const rows = [
+      { year_month: "2025-02", metric_type: "CALL_CLICKS", total_value: 999 },
+      { year_month: "2025-03", metric_type: "CALL_CLICKS", total_value: 10 },
+      { year_month: "2025-06", metric_type: "CALL_CLICKS", total_value: 888 },
+    ];
+    const result = pivotMonthlyMetrics(rows, ["2025-03", "2025-04", "2025-05"]);
+    expect(result).toHaveLength(3);
+    expect(result[0].callClicks).toBe(10);
+    expect(result[1].callClicks).toBe(0);
+    expect(result[2].callClicks).toBe(0);
   });
 });

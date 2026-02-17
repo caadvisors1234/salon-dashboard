@@ -19,7 +19,9 @@ import {
   monthEnd,
   formatYearMonthLabel,
   normalizeYearMonth,
+  generateMonthRange,
   buildTrend,
+  pivotMonthlyMetrics,
 } from "./utils";
 
 // --- ローカルヘルパー ---
@@ -335,61 +337,14 @@ export async function getMetricsTimeSeries(
   const startDate = monthStart(startMonth);
   const endDate = endMonth === getCurrentMonth() ? today() : monthEnd(endMonth);
 
-  const { data: metrics } = await supabase
-    .from("daily_metrics")
-    .select("date, metric_type, value")
-    .eq("location_id", locationId)
-    .gte("date", startDate)
-    .lte("date", endDate)
-    .order("date");
+  const { data } = await supabase.rpc("get_monthly_metrics", {
+    p_location_id: locationId,
+    p_start_date: startDate,
+    p_end_date: endDate,
+  });
 
-  if (!metrics || metrics.length === 0) return [];
-
-  // 月別に集計
-  const monthMap = new Map<string, MonthlyMetricPoint>();
-
-  for (const m of metrics) {
-    const ym = m.date.slice(0, 7); // YYYY-MM
-    if (!monthMap.has(ym)) {
-      monthMap.set(ym, {
-        yearMonth: ym,
-        label: formatYearMonthLabel(ym),
-        impressionsDesktopSearch: 0,
-        impressionsMobileSearch: 0,
-        impressionsDesktopMaps: 0,
-        impressionsMobileMaps: 0,
-        callClicks: 0,
-        directionRequests: 0,
-        websiteClicks: 0,
-      });
-    }
-    const point = monthMap.get(ym)!;
-    switch (m.metric_type) {
-      case "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH":
-        point.impressionsDesktopSearch += m.value;
-        break;
-      case "BUSINESS_IMPRESSIONS_MOBILE_SEARCH":
-        point.impressionsMobileSearch += m.value;
-        break;
-      case "BUSINESS_IMPRESSIONS_DESKTOP_MAPS":
-        point.impressionsDesktopMaps += m.value;
-        break;
-      case "BUSINESS_IMPRESSIONS_MOBILE_MAPS":
-        point.impressionsMobileMaps += m.value;
-        break;
-      case "CALL_CLICKS":
-        point.callClicks += m.value;
-        break;
-      case "BUSINESS_DIRECTION_REQUESTS":
-        point.directionRequests += m.value;
-        break;
-      case "WEBSITE_CLICKS":
-        point.websiteClicks += m.value;
-        break;
-    }
-  }
-
-  return [...monthMap.values()].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+  const allMonths = generateMonthRange(startMonth, endMonth);
+  return pivotMonthlyMetrics(data ?? [], allMonths);
 }
 
 // --- デバイス内訳 ---

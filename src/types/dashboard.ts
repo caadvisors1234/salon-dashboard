@@ -137,7 +137,7 @@ export type HpbData = {
 
 // --- 期間選択 ---
 
-export type PeriodPreset = "3m" | "6m" | "12m" | "custom";
+export type PeriodPreset = "3m" | "6m" | "12m";
 
 export type PeriodRange = {
   preset: PeriodPreset;

@@ -558,6 +558,18 @@ export type Database = {
     }
     Functions: {
       get_accessible_org_ids: { Args: never; Returns: string[] }
+      get_monthly_metrics: {
+        Args: {
+          p_location_id: string
+          p_start_date: string
+          p_end_date: string
+        }
+        Returns: {
+          year_month: string
+          metric_type: string
+          total_value: number
+        }[]
+      }
       get_user_role: { Args: never; Returns: string }
     }
     Enums: {

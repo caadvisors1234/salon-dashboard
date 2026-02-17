@@ -1,4 +1,4 @@
-import type { TrendData } from "@/types/dashboard";
+import type { TrendData, MonthlyMetricPoint } from "@/types/dashboard";
 
 // --- 定数 ---
 
@@ -46,6 +46,70 @@ export function formatYearMonthLabel(yearMonth: string): string {
 export function normalizeYearMonth(ym: string): string {
   if (ym.includes("-")) return ym;
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}`;
+}
+
+/** startMonth 〜 endMonth の全月を YYYY-MM 配列で返す */
+export function generateMonthRange(startMonth: string, endMonth: string): string[] {
+  const months: string[] = [];
+  const [sy, sm] = startMonth.split("-").map(Number);
+  const [ey, em] = endMonth.split("-").map(Number);
+  let y = sy, m = sm;
+  while (y < ey || (y === ey && m <= em)) {
+    months.push(`${y}-${String(m).padStart(2, "0")}`);
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return months;
+}
+
+// --- RPC結果ピボット ---
+
+type AggregatedRow = {
+  year_month: string;
+  metric_type: string;
+  total_value: number;
+};
+
+const METRIC_FIELD_MAP: Record<string, keyof MonthlyMetricPoint> = {
+  BUSINESS_IMPRESSIONS_DESKTOP_SEARCH: "impressionsDesktopSearch",
+  BUSINESS_IMPRESSIONS_MOBILE_SEARCH: "impressionsMobileSearch",
+  BUSINESS_IMPRESSIONS_DESKTOP_MAPS: "impressionsDesktopMaps",
+  BUSINESS_IMPRESSIONS_MOBILE_MAPS: "impressionsMobileMaps",
+  CALL_CLICKS: "callClicks",
+  BUSINESS_DIRECTION_REQUESTS: "directionRequests",
+  WEBSITE_CLICKS: "websiteClicks",
+};
+
+/** RPC `get_monthly_metrics` の結果を MonthlyMetricPoint[] にピボットする */
+export function pivotMonthlyMetrics(
+  rows: AggregatedRow[],
+  allMonths: string[]
+): MonthlyMetricPoint[] {
+  const monthMap = new Map<string, MonthlyMetricPoint>();
+  for (const ym of allMonths) {
+    monthMap.set(ym, {
+      yearMonth: ym,
+      label: formatYearMonthLabel(ym),
+      impressionsDesktopSearch: 0,
+      impressionsMobileSearch: 0,
+      impressionsDesktopMaps: 0,
+      impressionsMobileMaps: 0,
+      callClicks: 0,
+      directionRequests: 0,
+      websiteClicks: 0,
+    });
+  }
+
+  for (const row of rows) {
+    const point = monthMap.get(row.year_month);
+    if (!point) continue;
+    const field = METRIC_FIELD_MAP[row.metric_type];
+    if (field) {
+      (point[field] as number) = row.total_value;
+    }
+  }
+
+  return allMonths.map((ym) => monthMap.get(ym)!);
 }
 
 // --- トレンド計算 ---
