@@ -36,31 +36,47 @@ npx playwright test e2e/auth.spec.ts
 - `src/app/api/` — APIルート（GBP, HPB, OAuth, バッチトリガー, PDF）
 - `src/app/report/` — PDF生成用レンダリングページ（Puppeteerで取得）
 
+### ミドルウェアと認証フロー
+
+`src/lib/supabase/middleware.ts` でPATH_BASEDルーティング制御:
+- `PUBLIC_PATHS`（`/login`, `/password-reset`, `/set-password`, `/report`）は認証不要
+- 未認証で保護パスアクセス → `/login` にリダイレクト
+- 認証済みで `/login` アクセス → `/dashboard` にリダイレクト
+- `/report` パスはPDF生成用（report_token cookieで独自JWT認証）
+
 ### マルチテナンシーとロール
 
 3ロール: **admin**（全データ）/ **staff**（割り当て組織のみ）/ **client**（自組織のみ）
 
-- **認証ガード**: `src/lib/auth/guards.ts` — `getSession()`, `requireAuth()`, `requireRole()`
-- **アクセス制御**: `src/lib/auth/access.ts` — `checkOrgAccess()`, `checkLocationAccess()`
+- **認証ガード**: `src/lib/auth/guards.ts` — `getSession()` → `requireAuth()` → `requireRole()` の階層構造
+- **アクセス制御**: `src/lib/auth/access.ts` — `checkOrgAccess()`, `checkLocationAccess()`。staffは `user_org_assignments` テーブルで組織割り当て
 - **RLS**: 全テーブルでRow Level Security有効。DB関数 `get_user_role()`, `get_accessible_org_ids()` でポリシー制御
 
 ### Supabaseクライアント
 
 | 用途 | ファイル | 説明 |
 |------|----------|------|
-| ブラウザ | `src/lib/supabase/client.ts` | クライアントコンポーネント用 |
-| サーバー | `src/lib/supabase/server.ts` | Server Components / API Routes用（cookies使用） |
-| Admin | `src/lib/supabase/admin.ts` | バッチ処理用（service_role key） |
-| Middleware | `src/lib/supabase/middleware.ts` | セッション更新 |
+| ブラウザ | `src/lib/supabase/client.ts` | クライアントコンポーネント用（ANON_KEY） |
+| サーバー | `src/lib/supabase/server.ts` | Server Components / API Routes用（ANON_KEY + cookies） |
+| Admin | `src/lib/supabase/admin.ts` | バッチ処理用（SERVICE_ROLE_KEY、RLSバイパス） |
+| Middleware | `src/lib/supabase/middleware.ts` | セッション更新 + パスベース認証制御 |
 
 ### 主要機能モジュール
 
 - `src/lib/gbp/` — Google Business Profile API連携（OAuth, パフォーマンス, レビュー, キーワード）
 - `src/lib/hpb/` — Hot Pepper Beauty CSVアップロード（Shift_JIS対応, 21指標パース）
-- `src/lib/batch/` — バッチジョブ制御（分散ロック, リトライ, ロガー）
+- `src/lib/batch/` — バッチジョブ制御（プロセス内ロック, リトライ, batch_logsテーブル記録）
 - `src/lib/pdf/` — PDFレポート生成（Puppeteer, JWTトークン, セマフォキュー）
 - `src/lib/dashboard/` — ダッシュボードクエリとユーティリティ
-- `batch/` — スタンドアロンNode.jsバッチワーカー（node-cron, Docker）
+- `batch/` — スタンドアロンNode.jsバッチワーカー（node-cron, Docker, ヘルスチェック:3001）
+
+### データフロー
+
+**GBPデータ収集**: Google API → `batch/` (日次cron 18:00 JST) → `daily_metrics` / `rating_snapshots` テーブル → ダッシュボード表示
+
+**PDF生成パイプライン**: APIリクエスト → セマフォキュー（最大同時2, `PDF_MAX_CONCURRENT`で設定可） → Puppeteerでブラウザ起動（60秒アイドルタイムアウト） → `/report/store/[locationId]` ページレンダリング → `window.__REPORT_READY === true` を500msポーリング（30秒タイムアウト） → PDF/ZIP返却
+
+**GBPクライアント**: レートリミット300ms間隔（200 QPM目標）、3回リトライ（指数バックオフ1s/2s/4s）、401時自動トークンリフレッシュ。トークンはAES-256-GCM暗号化してDB保存
 
 ### コンポーネント構成
 
@@ -81,8 +97,14 @@ npx playwright test e2e/auth.spec.ts
 
 ## テスト
 
-- **ユニットテスト（Vitest）**: `src/**/*.test.ts` — Supabaseクライアントをvi.mock()でモック。カバレッジ対象は `src/lib/**` と `src/app/api/**`
-- **E2Eテスト（Playwright）**: `e2e/**/*.spec.ts` — `auth.setup.ts` でセッション確立後、各テストで再利用。E2E用環境変数 `E2E_USER_EMAIL`, `E2E_USER_PASSWORD` が必要
+- **ユニットテスト（Vitest）**: `src/**/*.test.ts` — テスト環境は `node`（jsdomではない）。`src/test/setup.ts` でダミー環境変数を自動設定、`beforeEach` で `vi.restoreAllMocks()` 実行。カバレッジ対象は `src/lib/**` と `src/app/api/**`
+- **E2Eテスト（Playwright）**: `e2e/**/*.spec.ts` — `auth.setup.ts` でセッション確立後、storageStateで各テストに再利用。Chromiumのみ。E2E用環境変数 `E2E_USER_EMAIL`, `E2E_USER_PASSWORD` が必要
+
+## デプロイ
+
+2つのDockerイメージ:
+- **Webアプリ** (`Dockerfile`): Next.js standalone出力、ポート3000、ビルド時に `NEXT_PUBLIC_*` 環境変数が必要
+- **バッチワーカー** (`batch/Dockerfile`): Node 20 alpine + tsx、ポート3001（ヘルスチェック）、ルートの `src/` をコピーしてSupabaseユーティリティを共有
 
 ## Supabaseプロジェクト
 
