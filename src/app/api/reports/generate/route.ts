@@ -9,6 +9,9 @@ import { generateStorePdf, generateClientZip } from "@/lib/pdf/generator";
 import { getOrgLocations, getOrgName } from "@/lib/pdf/report-queries";
 import { apiError } from "@/lib/api/response";
 import { logAudit } from "@/lib/audit/logger";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ReportGenerate");
 
 // Next.js API Route のタイムアウト設定
 export const maxDuration = 300; // 5分（クライアント単位を考慮）
@@ -110,7 +113,7 @@ export async function POST(request: NextRequest) {
   // キュー状態チェック（待ちが多すぎる場合は拒否）
   const status = pdfQueue.getStatus();
   if (status.waiting >= 10) {
-    console.warn(`[Report Generate] Queue full: ${status.waiting} waiting`);
+    log.warn({ waiting: status.waiting }, "Queue full");
     return apiError("生成キューが満杯です", 429);
   }
 
@@ -190,7 +193,7 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (err) {
-    console.error("[Report Generate] Error:", err);
+    log.error({ err }, "Error generating PDF");
     return apiError("PDF生成に失敗しました", 500);
   }
 }

@@ -18,10 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { inviteUser } from "@/lib/admin/actions";
+import { useOrgSelection } from "@/hooks/use-org-selection";
+import { OrgSelector } from "@/components/admin/org-selector";
 import type { UserRole } from "@/types";
 
 type Org = { id: string; name: string };
@@ -31,14 +32,14 @@ export function UserInviteDialog({ organizations }: { organizations: Org[] }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UserRole>("staff");
   const [orgId, setOrgId] = useState("");
-  const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const { selectedOrgIds, toggleOrg, resetSelection } = useOrgSelection();
 
   const resetForm = () => {
     setEmail("");
     setRole("staff");
     setOrgId("");
-    setSelectedOrgIds([]);
+    resetSelection();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,12 +62,6 @@ export function UserInviteDialog({ organizations }: { organizations: Org[] }) {
     } else {
       toast.error(result.error);
     }
-  };
-
-  const toggleOrg = (oid: string) => {
-    setSelectedOrgIds((prev) =>
-      prev.includes(oid) ? prev.filter((id) => id !== oid) : [...prev, oid]
-    );
   };
 
   return (
@@ -130,23 +125,12 @@ export function UserInviteDialog({ organizations }: { organizations: Org[] }) {
           )}
 
           {role === "staff" && organizations.length > 0 && (
-            <div className="space-y-2">
-              <Label>担当組織（任意）</Label>
-              <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-3">
-                {organizations.map((org) => (
-                  <label
-                    key={org.id}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <Checkbox
-                      checked={selectedOrgIds.includes(org.id)}
-                      onCheckedChange={() => toggleOrg(org.id)}
-                    />
-                    {org.name}
-                  </label>
-                ))}
-              </div>
-            </div>
+            <OrgSelector
+              organizations={organizations}
+              selectedOrgIds={selectedOrgIds}
+              onToggle={toggleOrg}
+              label="担当組織（任意）"
+            />
           )}
 
           <div className="flex justify-end gap-2">

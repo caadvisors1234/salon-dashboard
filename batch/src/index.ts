@@ -19,6 +19,9 @@ import {
   sendWorkerLifecycleNotification,
   sendBackfillAlert,
 } from "./services/notifier";
+import { createLogger } from "../../src/lib/logger";
+
+const log = createLogger("Main");
 
 let isShuttingDown = false;
 
@@ -29,7 +32,7 @@ async function runStartupBackfill(): Promise<void> {
   const jobType = "backfill";
 
   if (!acquireLock(jobType)) {
-    console.log("[Main] Backfill already running, skipping");
+    log.info("Backfill already running, skipping");
     return;
   }
 
@@ -40,7 +43,7 @@ async function runStartupBackfill(): Promise<void> {
     const result = await runBackfillJob(config.backfillDays);
 
     if (result.totalMetricDaysFilled === 0 && result.totalRatingDaysFilled === 0) {
-      console.log("[Main] No backfill needed — data is up to date");
+      log.info("No backfill needed — data is up to date");
     }
 
     await logJobComplete(logId, {
@@ -57,7 +60,7 @@ async function runStartupBackfill(): Promise<void> {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[Main] Backfill error: ${message}`);
+    log.error({ err }, "Backfill error");
     if (logId) {
       await logJobError(logId, message);
     }
@@ -73,7 +76,7 @@ async function shutdown(signal: string): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
-  console.log(`\n[Main] Received ${signal}. Starting graceful shutdown...`);
+  log.info({ signal }, "Received signal. Starting graceful shutdown...");
 
   // cron 停止（新しいジョブが起動しないようにする）
   stopScheduler();
@@ -81,7 +84,7 @@ async function shutdown(signal: string): Promise<void> {
   // 実行中のジョブがあれば完了を待つ（最大60秒）
   const runningJobs = getLockedJobs();
   if (runningJobs.length > 0) {
-    console.log(`[Main] Waiting for running jobs to complete: ${runningJobs.join(", ")}`);
+    log.info({ runningJobs }, "Waiting for running jobs to complete");
     const maxWait = 60_000;
     const startTime = Date.now();
 
@@ -91,7 +94,7 @@ async function shutdown(signal: string): Promise<void> {
 
     const remaining = getLockedJobs();
     if (remaining.length > 0) {
-      console.warn(`[Main] Timeout waiting for jobs: ${remaining.join(", ")}`);
+      log.warn({ remainingJobs: remaining }, "Timeout waiting for jobs");
     }
   }
 
@@ -105,7 +108,7 @@ async function shutdown(signal: string): Promise<void> {
     // 通知失敗は無視
   }
 
-  console.log("[Main] Shutdown complete");
+  log.info("Shutdown complete");
   process.exit(0);
 }
 
@@ -113,14 +116,11 @@ async function shutdown(signal: string): Promise<void> {
  * メインエントリポイント
  */
 async function main(): Promise<void> {
-  console.log("=".repeat(60));
-  console.log("  GBP Dashboard Batch Worker");
-  console.log(`  Started at: ${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}`);
-  console.log("=".repeat(60));
+  log.info("GBP Dashboard Batch Worker started at %s", new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }));
 
   // 1. 環境変数バリデーション
   const config = loadConfig();
-  console.log(`[Main] Config loaded: daily=${config.dailyCron}, monthly=${config.monthlyCron}, backfill=${config.backfillDays}d`);
+  log.info({ dailyCron: config.dailyCron, monthlyCron: config.monthlyCron, backfillDays: config.backfillDays }, "Config loaded");
 
   // 2. ヘルスチェックサーバー起動
   await startHealthServer();
@@ -133,7 +133,7 @@ async function main(): Promise<void> {
   }
 
   // 4. バックフィル実行（cron 登録前）
-  console.log("[Main] Running startup backfill...");
+  log.info("Running startup backfill...");
   await runStartupBackfill();
 
   // 5. cron スケジュール登録
@@ -143,10 +143,10 @@ async function main(): Promise<void> {
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
 
-  console.log("[Main] Batch worker is ready and waiting for scheduled jobs");
+  log.info("Batch worker is ready and waiting for scheduled jobs");
 }
 
 main().catch((err) => {
-  console.error("[Main] Fatal error:", err);
+  log.error({ err }, "Fatal error");
   process.exit(1);
 });

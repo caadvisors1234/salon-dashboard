@@ -7,6 +7,9 @@ import { createGbpClient } from "@/lib/gbp/client";
 import { fetchMonthlyKeywords, saveMonthlyKeywords } from "@/lib/gbp/keywords";
 import { getTargetLocations, type LocationTarget } from "./daily";
 import { sleep } from "@/lib/utils";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("MonthlyJob");
 
 const CONCURRENCY_LIMIT = 5;
 
@@ -67,8 +70,9 @@ async function processLocation(
 
       if (attempt < MAX_RETRIES - 1) {
         const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
-        console.warn(
-          `[MonthlyJob] Retry ${attempt + 1}/${MAX_RETRIES} for ${location.name}: ${lastError.message}. Waiting ${backoffMs}ms`
+        log.warn(
+          { attempt: attempt + 1, maxRetries: MAX_RETRIES, location: location.name, error: lastError.message, backoffMs },
+          "Retry after error"
         );
         await sleep(backoffMs);
       }
@@ -116,14 +120,14 @@ export async function runMonthlyJob(
   const month = targetMonth ?? prev.month;
   const yearMonth = `${year}${String(month).padStart(2, "0")}`;
 
-  console.log(`[MonthlyJob] Starting monthly batch for ${yearMonth}`);
+  log.info({ yearMonth }, "Starting monthly batch");
 
   let locations = await getTargetLocations();
   if (targetLocationIds && targetLocationIds.length > 0) {
     locations = locations.filter((l) => targetLocationIds.includes(l.id));
   }
   if (locations.length === 0) {
-    console.log("[MonthlyJob] No target locations found");
+    log.info("No target locations found");
     return {
       targetYearMonth: yearMonth,
       totalLocations: 0,
@@ -133,7 +137,7 @@ export async function runMonthlyJob(
     };
   }
 
-  console.log(`[MonthlyJob] Processing ${locations.length} locations (concurrency: ${CONCURRENCY_LIMIT})`);
+  log.info({ locationCount: locations.length, concurrency: CONCURRENCY_LIMIT }, "Processing locations");
 
   const limit = pLimit(CONCURRENCY_LIMIT);
   const settled = await Promise.allSettled(
@@ -141,9 +145,9 @@ export async function runMonthlyJob(
       limit(async () => {
         const result = await processLocation(location, year, month, yearMonth);
         if (result.success) {
-          console.log(`[MonthlyJob] ✓ ${location.name} (${result.keywordCount} keywords)`);
+          log.info({ location: location.name, keywordCount: result.keywordCount }, "Location processed successfully");
         } else {
-          console.error(`[MonthlyJob] ✗ ${location.name}: ${result.error}`);
+          log.error({ location: location.name, error: result.error }, "Location processing failed");
         }
         return result;
       })
@@ -164,8 +168,9 @@ export async function runMonthlyJob(
   const successCount = results.filter((r) => r.success).length;
   const failureCount = results.filter((r) => !r.success).length;
 
-  console.log(
-    `[MonthlyJob] Completed: ${successCount} success, ${failureCount} failure out of ${locations.length}`
+  log.info(
+    { successCount, failureCount, totalLocations: locations.length },
+    "Completed"
   );
 
   return {

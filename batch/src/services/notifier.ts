@@ -10,6 +10,9 @@ import { getConfig } from "../lib/config";
 import type { DailyJobResult } from "@/lib/batch/jobs/daily";
 import type { MonthlyJobResult } from "@/lib/batch/jobs/monthly";
 import type { BackfillJobResult } from "@/lib/batch/jobs/backfill";
+import { createLogger } from "../../../src/lib/logger";
+
+const log = createLogger("Notifier");
 
 let resend: Resend | null = null;
 
@@ -35,7 +38,7 @@ async function getAdminEmails(): Promise<string[]> {
     .eq("role", "admin");
 
   if (error || !data) {
-    console.error("[Notifier] Failed to fetch admin emails:", error?.message);
+    log.error({ err: error }, "Failed to fetch admin emails");
     return [];
   }
 
@@ -52,10 +55,7 @@ async function sendEmail(
 ): Promise<void> {
   const client = getResend();
   if (!client) {
-    console.log(`[Notifier] Resend not configured. Would send email:`);
-    console.log(`  To: ${to.join(", ")}`);
-    console.log(`  Subject: ${subject}`);
-    console.log(`  Body: ${text.slice(0, 200)}...`);
+    log.info({ to, subject, bodyPreview: text.slice(0, 200) }, "Resend not configured. Would send email");
     return;
   }
 
@@ -68,11 +68,9 @@ async function sendEmail(
       subject,
       text,
     });
-    console.log(`[Notifier] Email sent: "${subject}" to ${to.length} recipients`);
+    log.info({ subject, recipientCount: to.length }, "Email sent");
   } catch (err) {
-    console.error(
-      `[Notifier] Failed to send email: ${err instanceof Error ? err.message : String(err)}`
-    );
+    log.error({ err }, "Failed to send email");
   }
 }
 

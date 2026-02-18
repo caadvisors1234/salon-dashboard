@@ -1,9 +1,12 @@
 import { getSession } from "@/lib/auth/guards";
 import { apiSuccess, apiError } from "@/lib/api/response";
+import { createLogger } from "@/lib/logger";
 import { getStoredGbpAccounts, fetchGbpLocations, fetchVoiceOfMerchantState } from "@/lib/gbp/accounts";
 import { getValidAccessToken } from "@/lib/gbp/token-store";
 import { refreshAccessToken } from "@/lib/gbp/oauth";
 import type { GbpLocation, VoiceOfMerchantState, LocationStatus } from "@/lib/gbp/types";
+
+const log = createLogger("GBPLocations");
 
 const STATUS_LABELS: Record<LocationStatus, string> = {
   verified: "確認済み",
@@ -29,8 +32,9 @@ function determineStatusFromVoM(vom: VoiceOfMerchantState | null): LocationStatu
     if (vom.complyWithGuidelines.recommendationReason === "BUSINESS_LOCATION_DISABLED") {
       return "disabled";
     }
-    console.warn(
-      `Unknown complyWithGuidelines reason: ${vom.complyWithGuidelines.recommendationReason}`
+    log.warn(
+      { reason: vom.complyWithGuidelines.recommendationReason },
+      "Unknown complyWithGuidelines reason"
     );
     return "unknown";
   }
@@ -147,16 +151,16 @@ export async function GET() {
           });
         }
       } catch (err) {
-        console.error(
-          `Failed to fetch locations for ${account.gbpAccountId}:`,
-          err
+        log.error(
+          { err, accountId: account.gbpAccountId },
+          "Failed to fetch locations for account"
         );
       }
     }
 
     return apiSuccess({ locations: allLocations });
   } catch (err) {
-    console.error("Failed to fetch GBP locations:", err);
+    log.error({ err }, "Failed to fetch GBP locations");
     return apiError("GBP ロケーション一覧の取得に失敗しました", 500);
   }
 }

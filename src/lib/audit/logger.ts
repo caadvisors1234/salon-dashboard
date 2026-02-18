@@ -1,5 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("AuditLog");
 
 interface AuditLogEntry {
   userId: string;
@@ -30,10 +33,10 @@ export function logAudit(entry: AuditLogEntry): void {
       })
       .then(({ error }) => {
         if (error) {
-          console.error("[AuditLog] Failed to insert:", error.message);
+          log.error({ err: error }, "Failed to insert");
         }
       });
   } catch (err) {
-    console.error("[AuditLog] Error:", err);
+    log.error({ err }, "Error");
   }
 }

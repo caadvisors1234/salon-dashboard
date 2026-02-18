@@ -1,4 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("CircuitBreaker");
 
 const FAILURE_THRESHOLD = 5;
 
@@ -55,8 +58,9 @@ export async function recordFailure(locationId: string, error: string): Promise<
   });
 
   if (newCount !== null && newCount >= FAILURE_THRESHOLD) {
-    console.warn(
-      `[CircuitBreaker] Location ${locationId} disabled after ${newCount} consecutive failures`
+    log.warn(
+      { locationId, consecutiveFailures: newCount },
+      "Location disabled after consecutive failures"
     );
   }
 }

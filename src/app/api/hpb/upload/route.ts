@@ -5,6 +5,9 @@ import { parseHpbCsv } from "@/lib/hpb/csv-parser";
 import { MAX_FILE_SIZE } from "@/lib/hpb/constants";
 import { apiSuccess, apiError } from "@/lib/api/response";
 import { logAudit } from "@/lib/audit/logger";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("HPBUpload");
 
 export async function POST(request: NextRequest) {
   // 1. 認証・権限チェック
@@ -153,7 +156,7 @@ export async function POST(request: NextRequest) {
     });
 
   if (storageError) {
-    console.error("Storage upload error:", storageError);
+    log.error({ err: storageError }, "Storage upload error");
     // Storage保存失敗はワーニングとして続行（データ格納は実行する）
     parseResult.warnings.push({
       level: "warning",
@@ -172,7 +175,7 @@ export async function POST(request: NextRequest) {
     .upsert(upsertRows, { onConflict: "location_id,year_month" });
 
   if (upsertError) {
-    console.error("[HPB Upload] Upsert error:", upsertError);
+    log.error({ err: upsertError }, "Upsert error");
     return apiError("データの保存に失敗しました", 500);
   }
 

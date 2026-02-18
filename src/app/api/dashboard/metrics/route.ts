@@ -4,6 +4,9 @@ import { checkLocationAccess } from "@/lib/auth/access";
 import { getMetricsTimeSeries, getDeviceBreakdown } from "@/lib/dashboard/queries";
 import { getCurrentMonth } from "@/lib/utils";
 import { apiSuccess, apiError } from "@/lib/api/response";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("DashboardMetrics");
 
 export async function GET(request: NextRequest) {
   const user = await getSession();
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest) {
       { headers: { "Cache-Control": `private, max-age=${maxAge}` } }
     );
   } catch (err) {
-    console.error("[Dashboard Metrics] Error:", err);
+    log.error({ err }, "Error fetching metrics");
     return apiError("メトリクスの取得に失敗しました", 500);
   }
 }

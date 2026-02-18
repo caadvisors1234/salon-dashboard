@@ -12,6 +12,9 @@ import {
   sendDailyBatchNotification,
   sendMonthlyBatchNotification,
 } from "./services/notifier";
+import { createLogger } from "../../src/lib/logger";
+
+const log = createLogger("Scheduler");
 
 let dailyTask: cron.ScheduledTask | null = null;
 let monthlyTask: cron.ScheduledTask | null = null;
@@ -23,7 +26,7 @@ export async function executeDailyJob(): Promise<void> {
   const jobType = "daily_batch";
 
   if (!(await acquireLock(jobType))) {
-    console.log("[Scheduler] Daily job already running, skipping");
+    log.info("Daily job already running, skipping");
     return;
   }
 
@@ -49,7 +52,7 @@ export async function executeDailyJob(): Promise<void> {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[Scheduler] Daily job error: ${message}`);
+    log.error({ err }, "Daily job error");
     if (logId) {
       await logJobError(logId, message);
     }
@@ -65,7 +68,7 @@ export async function executeMonthlyJob(): Promise<void> {
   const jobType = "monthly_batch";
 
   if (!(await acquireLock(jobType))) {
-    console.log("[Scheduler] Monthly job already running, skipping");
+    log.info("Monthly job already running, skipping");
     return;
   }
 
@@ -91,7 +94,7 @@ export async function executeMonthlyJob(): Promise<void> {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[Scheduler] Monthly job error: ${message}`);
+    log.error({ err }, "Monthly job error");
     if (logId) {
       await logJobError(logId, message);
     }
@@ -112,10 +115,10 @@ export function startScheduler(): void {
   }
   dailyTask = cron.schedule(config.dailyCron, () => {
     executeDailyJob().catch((err) =>
-      console.error("[Scheduler] Unhandled daily job error:", err)
+      log.error({ err }, "Unhandled daily job error")
     );
   });
-  console.log(`[Scheduler] Daily job scheduled: ${config.dailyCron}`);
+  log.info({ cron: config.dailyCron }, "Daily job scheduled");
 
   // 月次バッチ
   if (!cron.validate(config.monthlyCron)) {
@@ -123,10 +126,10 @@ export function startScheduler(): void {
   }
   monthlyTask = cron.schedule(config.monthlyCron, () => {
     executeMonthlyJob().catch((err) =>
-      console.error("[Scheduler] Unhandled monthly job error:", err)
+      log.error({ err }, "Unhandled monthly job error")
     );
   });
-  console.log(`[Scheduler] Monthly job scheduled: ${config.monthlyCron}`);
+  log.info({ cron: config.monthlyCron }, "Monthly job scheduled");
 }
 
 /**
@@ -136,11 +139,11 @@ export function stopScheduler(): void {
   if (dailyTask) {
     dailyTask.stop();
     dailyTask = null;
-    console.log("[Scheduler] Daily job stopped");
+    log.info("Daily job stopped");
   }
   if (monthlyTask) {
     monthlyTask.stop();
     monthlyTask = null;
-    console.log("[Scheduler] Monthly job stopped");
+    log.info("Monthly job stopped");
   }
 }

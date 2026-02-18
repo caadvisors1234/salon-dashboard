@@ -6,6 +6,9 @@ import http from "node:http";
 import { getConfig } from "../lib/config";
 import { getLockedJobs } from "@/lib/batch/lock";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createLogger } from "../../../src/lib/logger";
+
+const log = createLogger("Health");
 
 const HEALTH_CHECK_TIMEOUT_MS = 5000;
 const STALE_DAILY_RUN_HOURS = 26;
@@ -122,7 +125,7 @@ export function startHealthServer(): Promise<void> {
         });
         res.end(body);
       } catch (err) {
-        console.error("[Health] Error building response:", err);
+        log.error({ err }, "Error building response");
         const errorBody = JSON.stringify({ status: "unhealthy", error: "Internal health check error" });
         res.writeHead(503, {
           "Content-Type": "application/json",
@@ -133,12 +136,12 @@ export function startHealthServer(): Promise<void> {
     });
 
     server.on("error", (err) => {
-      console.error(`[Health] Server error:`, err);
+      log.error({ err }, "Server error");
       reject(err);
     });
 
     server.listen(port, () => {
-      console.log(`[Health] Server listening on port ${port}`);
+      log.info({ port }, "Server listening");
       resolve();
     });
   });
@@ -155,7 +158,7 @@ export function stopHealthServer(): Promise<void> {
     }
 
     server.close(() => {
-      console.log("[Health] Server stopped");
+      log.info("Server stopped");
       server = null;
       resolve();
     });

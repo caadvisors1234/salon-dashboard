@@ -3,6 +3,9 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BatchLogger");
 
 export interface JobLogEntry {
   id: string;
@@ -31,11 +34,11 @@ export async function logJobStart(
     .single();
 
   if (error) {
-    console.error(`[BatchLogger] Failed to log job start for ${jobType}:`, error.message);
+    log.error({ err: error, jobType }, "Failed to log job start");
     throw error;
   }
 
-  console.log(`[BatchLogger] Job started: ${jobType} (id: ${data.id})`);
+  log.info({ jobType, logId: data.id }, "Job started");
   return data.id;
 }
 
@@ -58,9 +61,9 @@ export async function logJobComplete(
     .eq("id", logId);
 
   if (error) {
-    console.error(`[BatchLogger] Failed to log job complete (id: ${logId}):`, error.message);
+    log.error({ err: error, logId }, "Failed to log job complete");
   } else {
-    console.log(`[BatchLogger] Job completed: ${logId}`);
+    log.info({ logId }, "Job completed");
   }
 }
 
@@ -85,8 +88,8 @@ export async function logJobError(
     .eq("id", logId);
 
   if (error) {
-    console.error(`[BatchLogger] Failed to log job error (id: ${logId}):`, error.message);
+    log.error({ err: error, logId }, "Failed to log job error");
   } else {
-    console.log(`[BatchLogger] Job failed: ${logId} - ${errorMessage}`);
+    log.info({ logId, errorMessage }, "Job failed");
   }
 }

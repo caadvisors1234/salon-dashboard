@@ -8,6 +8,9 @@ import { runMonthlyJob } from "@/lib/batch/jobs/monthly";
 import { runBackfillJob } from "@/lib/batch/jobs/backfill";
 import { runInitialBackfill } from "@/lib/batch/jobs/initial-backfill";
 import { logAudit } from "@/lib/audit/logger";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BatchTrigger");
 
 type JobType = "daily" | "monthly" | "backfill" | "initial-backfill";
 
@@ -80,7 +83,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (err) {
       await releaseLock(lockKey);
-      console.error("[Batch Trigger]", err);
+      log.error({ err }, "Failed to start initial backfill");
       return apiError("バッチ実行に失敗しました", 500);
     }
 
@@ -154,7 +157,7 @@ export async function POST(request: NextRequest) {
       await logJobError(logId, message);
     }
 
-    console.error("[Batch Trigger]", err);
+    log.error({ err }, "Batch execution failed");
     return apiError("バッチ実行に失敗しました", 500);
   } finally {
     await releaseLock(lockKey);

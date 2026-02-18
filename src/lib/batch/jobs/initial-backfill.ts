@@ -7,6 +7,9 @@
  */
 import { runBackfillJob, type BackfillJobResult } from "./backfill";
 import { runMonthlyJob, type MonthlyJobResult } from "./monthly";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("InitialBackfill");
 
 const INITIAL_BACKFILL_DAYS = 365;
 const INITIAL_BACKFILL_MONTHS = 12;
@@ -24,7 +27,7 @@ export interface InitialBackfillResult {
 export async function runInitialBackfill(
   locationId: string
 ): Promise<InitialBackfillResult> {
-  console.log(`[InitialBackfill] Starting for location ${locationId}`);
+  log.info({ locationId }, "Starting initial backfill");
 
   // 1. 日次メトリクス + 評価スナップショット（365日）
   const backfill = await runBackfillJob(INITIAL_BACKFILL_DAYS, [locationId]);
@@ -45,11 +48,9 @@ export async function runInitialBackfill(
     0
   );
 
-  console.log(
-    `[InitialBackfill] Completed for location ${locationId}: ` +
-      `metrics=${backfill.totalMetricDaysFilled} days, ` +
-      `ratings=${backfill.totalRatingDaysFilled} days, ` +
-      `keywords=${totalKeywords} across ${monthlyResults.length} months`
+  log.info(
+    { locationId, metricDaysFilled: backfill.totalMetricDaysFilled, ratingDaysFilled: backfill.totalRatingDaysFilled, totalKeywords, months: monthlyResults.length },
+    "Completed initial backfill"
   );
 
   return { locationId, backfill, monthlyResults };

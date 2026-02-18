@@ -2,6 +2,11 @@
  * バッチワーカー環境変数の読み込みとバリデーション
  */
 
+import {
+  batchEnvSchema,
+  formatValidationErrors,
+} from "../../../src/lib/env/validation";
+
 export interface BatchConfig {
   // Supabase
   supabaseUrl: string;
@@ -25,35 +30,31 @@ export interface BatchConfig {
   notificationFrom: string;
 }
 
-function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Required environment variable ${key} is not set`);
-  }
-  return value;
-}
-
-function optionalEnv(key: string, defaultValue: string): string {
-  return process.env[key] || defaultValue;
-}
-
 export function loadConfig(): BatchConfig {
+  const result = batchEnvSchema.safeParse(process.env);
+
+  if (!result.success) {
+    throw new Error(formatValidationErrors(result.error));
+  }
+
+  const env = result.data;
+
   return {
-    supabaseUrl: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
 
-    googleClientId: requireEnv("GOOGLE_CLIENT_ID"),
-    googleClientSecret: requireEnv("GOOGLE_CLIENT_SECRET"),
-    googleTokenEncryptionKey: requireEnv("GOOGLE_TOKEN_ENCRYPTION_KEY"),
+    googleClientId: env.GOOGLE_CLIENT_ID,
+    googleClientSecret: env.GOOGLE_CLIENT_SECRET,
+    googleTokenEncryptionKey: env.GOOGLE_TOKEN_ENCRYPTION_KEY,
 
-    dailyCron: optionalEnv("BATCH_DAILY_CRON", "0 18 * * *"),
-    monthlyCron: optionalEnv("BATCH_MONTHLY_CRON", "0 18 8 * *"),
-    backfillDays: parseInt(optionalEnv("BATCH_BACKFILL_DAYS", "30"), 10),
+    dailyCron: env.BATCH_DAILY_CRON,
+    monthlyCron: env.BATCH_MONTHLY_CRON,
+    backfillDays: env.BATCH_BACKFILL_DAYS,
 
-    healthPort: parseInt(optionalEnv("BATCH_HEALTH_PORT", "3001"), 10),
+    healthPort: env.BATCH_HEALTH_PORT,
 
-    resendApiKey: optionalEnv("RESEND_API_KEY", ""),
-    notificationFrom: optionalEnv("BATCH_NOTIFICATION_FROM", "onboarding@resend.dev"),
+    resendApiKey: env.RESEND_API_KEY,
+    notificationFrom: env.BATCH_NOTIFICATION_FROM,
   };
 }
 

@@ -5,6 +5,9 @@ import { exchangeCodeForTokens, getUserInfo } from "@/lib/gbp/oauth";
 import { saveOAuthTokens } from "@/lib/gbp/token-store";
 import { fetchAndSaveGbpAccounts } from "@/lib/gbp/accounts";
 import { logAudit } from "@/lib/audit/logger";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("OAuthCallback");
 
 /**
  * GET /api/oauth/google/callback
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
     try {
       await fetchAndSaveGbpAccounts(tokens.accessToken, tokenId);
     } catch (accountError) {
-      console.error("Failed to fetch GBP accounts:", accountError);
+      log.error({ err: accountError }, "Failed to fetch GBP accounts");
       // アカウント取得失敗は致命的ではない（後から再取得可能）
     }
 
@@ -83,7 +86,7 @@ export async function GET(request: NextRequest) {
     settingsUrl.searchParams.set("oauth_success", "true");
     return NextResponse.redirect(settingsUrl);
   } catch (err) {
-    console.error("OAuth callback error:", err);
+    log.error({ err }, "OAuth callback error");
     settingsUrl.searchParams.set("oauth_error", "token_exchange_failed");
     return NextResponse.redirect(settingsUrl);
   }

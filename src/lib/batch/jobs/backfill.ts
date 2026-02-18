@@ -15,6 +15,9 @@ import {
   getGbpAccountId,
   type LocationTarget,
 } from "./daily";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BackfillJob");
 
 const CONCURRENCY_LIMIT = 5;
 
@@ -291,14 +294,14 @@ export async function runBackfillJob(
 ): Promise<BackfillJobResult> {
   const backfillDays = backfillDaysOverride ?? 30;
 
-  console.log(`[BackfillJob] Starting backfill for last ${backfillDays} days`);
+  log.info({ backfillDays }, "Starting backfill");
 
   let locations = await getTargetLocations();
   if (targetLocationIds && targetLocationIds.length > 0) {
     locations = locations.filter((l) => targetLocationIds.includes(l.id));
   }
   if (locations.length === 0) {
-    console.log("[BackfillJob] No target locations found");
+    log.info("No target locations found");
     return {
       backfillDays,
       totalLocations: 0,
@@ -318,8 +321,9 @@ export async function runBackfillJob(
   startDate.setDate(startDate.getDate() - backfillDays);
   const expectedDates = generateDateRange(startDate, endDate);
 
-  console.log(
-    `[BackfillJob] Checking ${locations.length} locations for ${expectedDates.length} days (${expectedDates[0]} to ${expectedDates[expectedDates.length - 1]}) (concurrency: ${CONCURRENCY_LIMIT})`
+  log.info(
+    { locationCount: locations.length, dateCount: expectedDates.length, startDate: expectedDates[0], endDate: expectedDates[expectedDates.length - 1], concurrency: CONCURRENCY_LIMIT },
+    "Checking locations for missing data"
   );
 
   let totalMetricDaysFilled = 0;
@@ -329,7 +333,7 @@ export async function runBackfillJob(
   const settled = await Promise.allSettled(
     locations.map((location) =>
       limit(async () => {
-        console.log(`[BackfillJob] Checking ${location.name}...`);
+        log.info({ location: location.name }, "Checking location");
         const { result, overdue } = await processLocation(
           location,
           expectedDates,
@@ -338,20 +342,23 @@ export async function runBackfillJob(
         );
 
         if (overdue) {
-          console.warn(
-            `[BackfillJob] ⚠ ${location.name}: ${backfillDays}日超の欠損あり (metrics: ${overdue.lastMetricDate || "データなし"}, rating: ${overdue.lastRatingDate || "データなし"})`
+          log.warn(
+            { location: location.name, backfillDays, lastMetricDate: overdue.lastMetricDate, lastRatingDate: overdue.lastRatingDate },
+            "Overdue data gap detected"
           );
         }
 
         if (result.filledMetricDays > 0 || result.filledRatingDays > 0) {
-          console.log(
-            `[BackfillJob] ✓ ${location.name}: metrics=${result.filledMetricDays}/${result.missingMetricDays}, rating=${result.filledRatingDays}/${result.missingRatingDays}`
+          log.info(
+            { location: location.name, filledMetricDays: result.filledMetricDays, missingMetricDays: result.missingMetricDays, filledRatingDays: result.filledRatingDays, missingRatingDays: result.missingRatingDays },
+            "Location backfill completed"
           );
         }
 
         if (result.errors.length > 0) {
-          console.warn(
-            `[BackfillJob] ⚠ ${location.name}: ${result.errors.length} errors`
+          log.warn(
+            { location: location.name, errorCount: result.errors.length },
+            "Location backfill had errors"
           );
         }
 
@@ -389,8 +396,9 @@ export async function runBackfillJob(
     totalRatingDaysFilled += result.filledRatingDays;
   }
 
-  console.log(
-    `[BackfillJob] Completed: ${totalMetricDaysFilled} metric days + ${totalRatingDaysFilled} rating days filled. ${overdueLocations.length} overdue locations.`
+  log.info(
+    { totalMetricDaysFilled, totalRatingDaysFilled, overdueLocationCount: overdueLocations.length },
+    "Completed"
   );
 
   return {

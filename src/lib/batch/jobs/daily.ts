@@ -10,6 +10,9 @@ import { fetchDailyMetrics, saveDailyMetrics } from "@/lib/gbp/performance";
 import { fetchRatingSnapshot, saveRatingSnapshot } from "@/lib/gbp/reviews";
 import { sleep } from "@/lib/utils";
 import { shouldProcess, recordSuccess, recordFailure } from "@/lib/batch/circuit-breaker";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("DailyJob");
 
 const CONCURRENCY_LIMIT = 5;
 
@@ -123,8 +126,9 @@ async function processLocation(
 
       if (attempt < MAX_RETRIES - 1) {
         const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
-        console.warn(
-          `[DailyJob] Retry ${attempt + 1}/${MAX_RETRIES} for ${location.name}: ${lastError.message}. Waiting ${backoffMs}ms`
+        log.warn(
+          { attempt: attempt + 1, maxRetries: MAX_RETRIES, location: location.name, error: lastError.message, backoffMs },
+          "Retry after error"
         );
         await sleep(backoffMs);
       }
@@ -145,11 +149,11 @@ async function processLocation(
  */
 export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> {
   const date = targetDate || getYesterday();
-  console.log(`[DailyJob] Starting daily batch for ${date}`);
+  log.info({ date }, "Starting daily batch");
 
   const locations = await getTargetLocations();
   if (locations.length === 0) {
-    console.log("[DailyJob] No target locations found");
+    log.info("No target locations found");
     return {
       targetDate: date,
       totalLocations: 0,
@@ -163,10 +167,10 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
 
   const gbpAccountId = await getGbpAccountId();
   if (!gbpAccountId) {
-    console.warn("[DailyJob] No GBP account found. Rating snapshots will be skipped.");
+    log.warn("No GBP account found. Rating snapshots will be skipped.");
   }
 
-  console.log(`[DailyJob] Processing ${locations.length} locations (concurrency: ${CONCURRENCY_LIMIT})`);
+  log.info({ locationCount: locations.length, concurrency: CONCURRENCY_LIMIT }, "Processing locations");
 
   const limit = pLimit(CONCURRENCY_LIMIT);
 
@@ -176,7 +180,7 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
         // サーキットブレーカー: 連続失敗が閾値を超えた店舗はスキップ
         const canProcess = await shouldProcess(location.id);
         if (!canProcess) {
-          console.warn(`[DailyJob] ⊘ ${location.name}: skipped by circuit breaker`);
+          log.warn({ location: location.name }, "Skipped by circuit breaker");
           return {
             locationId: location.id,
             locationName: location.name,
@@ -191,10 +195,10 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
         // サーキットブレーカー: 成功/失敗を記録
         if (result.success) {
           await recordSuccess(location.id);
-          console.log(`[DailyJob] ✓ ${location.name} (${result.metricsCount} metrics)`);
+          log.info({ location: location.name, metricsCount: result.metricsCount }, "Location processed successfully");
         } else {
           await recordFailure(location.id, result.error || "Unknown error");
-          console.error(`[DailyJob] ✗ ${location.name}: ${result.error}`);
+          log.error({ location: location.name, error: result.error }, "Location processing failed");
         }
         return result;
       })
@@ -216,8 +220,9 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
   const skippedCount = results.filter((r) => r.skipped).length;
   const failureCount = results.filter((r) => !r.success && !r.skipped).length;
 
-  console.log(
-    `[DailyJob] Completed: ${successCount} success, ${failureCount} failure, ${skippedCount} skipped out of ${locations.length}`
+  log.info(
+    { successCount, failureCount, skippedCount, totalLocations: locations.length },
+    "Completed"
   );
 
   const skippedLocations = results
@@ -225,8 +230,9 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
     .map((r) => ({ id: r.locationId, name: r.locationName }));
 
   if (skippedLocations.length > 0) {
-    console.warn(
-      `[DailyJob] Skipped locations: ${skippedLocations.map((l) => l.name).join(", ")}`
+    log.warn(
+      { skippedLocations: skippedLocations.map((l) => l.name) },
+      "Skipped locations"
     );
   }
 

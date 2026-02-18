@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/guards";
 import type { UserRole } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("AdminActions");
 
 // --- 共通型 ---
 
@@ -133,7 +136,7 @@ export async function inviteUser(
       .from("user_org_assignments")
       .insert(inserts);
     if (assignError) {
-      console.error("org assignment error:", assignError);
+      log.error({ err: assignError }, "Org assignment error");
     }
   }
 
@@ -181,7 +184,7 @@ export async function updateUser(
       { user_metadata: { role: data.role } }
     );
     if (authError) {
-      console.error("auth metadata update error:", authError);
+      log.error({ err: authError }, "Auth metadata update error");
     }
   }
 

@@ -1,6 +1,9 @@
 import { getValidAccessToken, invalidateToken, getStoredToken } from "./token-store";
 import { refreshAccessToken } from "./oauth";
 import { sleep } from "@/lib/utils";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("GBPClient");
 
 // ============================================
 // GBP API クライアント
@@ -74,7 +77,7 @@ export class GbpApiClient {
 
         // 401: トークンリフレッシュを試みて再リクエスト（初回のみ）
         if (response.status === 401 && attempt === 0) {
-          console.warn("[GBP Client] 401 received, attempting token refresh");
+          log.warn("401 received, attempting token refresh");
           const newToken = await this.forceRefreshToken();
           if (!newToken) {
             // リフレッシュ失敗 → トークン失効
@@ -91,8 +94,9 @@ export class GbpApiClient {
         // 429 / 5xx: 指数バックオフでリトライ
         if ((response.status === 429 || response.status >= 500) && attempt < MAX_RETRIES) {
           const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
-          console.warn(
-            `[GBP Client] ${response.status} received, retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+          log.warn(
+            { status: response.status, backoffMs, attempt: attempt + 1, maxRetries: MAX_RETRIES },
+            `${response.status} received, retrying`
           );
           await sleep(backoffMs);
           continue;
@@ -112,8 +116,9 @@ export class GbpApiClient {
         // ネットワークエラー等の場合もリトライ
         if (attempt < MAX_RETRIES && !lastError.message.includes("OAuth token is invalid")) {
           const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
-          console.warn(
-            `[GBP Client] Error: ${lastError.message}, retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`
+          log.warn(
+            { err: lastError, backoffMs, attempt: attempt + 1, maxRetries: MAX_RETRIES },
+            `Error, retrying`
           );
           await sleep(backoffMs);
           continue;

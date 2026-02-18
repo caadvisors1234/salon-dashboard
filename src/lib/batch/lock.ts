@@ -8,6 +8,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import crypto from "crypto";
 import os from "os";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("JobLock");
 
 const runningJobs = new Set<string>();
 
@@ -24,7 +27,7 @@ const DEFAULT_TTL_MINUTES = 10;
  */
 export async function acquireLock(jobType: string, ttlMinutes?: number): Promise<boolean> {
   if (runningJobs.has(jobType)) {
-    console.warn(`[JobLock] Job ${jobType} is already running locally, skipping`);
+    log.warn({ jobType }, "Job is already running locally, skipping");
     return false;
   }
 
@@ -36,17 +39,17 @@ export async function acquireLock(jobType: string, ttlMinutes?: number): Promise
   });
 
   if (error) {
-    console.error(`[JobLock] DB lock acquisition error for ${jobType}: ${error.message}`);
+    log.error({ err: error, jobType }, "DB lock acquisition error");
     return false;
   }
 
   if (!data) {
-    console.warn(`[JobLock] Job ${jobType} is locked by another process, skipping`);
+    log.warn({ jobType }, "Job is locked by another process, skipping");
     return false;
   }
 
   runningJobs.add(jobType);
-  console.log(`[JobLock] Lock acquired: ${jobType} (instance: ${INSTANCE_ID})`);
+  log.info({ jobType, instanceId: INSTANCE_ID }, "Lock acquired");
   return true;
 }
 
@@ -63,10 +66,10 @@ export async function releaseLock(jobType: string): Promise<void> {
   });
 
   if (error) {
-    console.error(`[JobLock] DB lock release error for ${jobType}: ${error.message}`);
-    console.log(`[JobLock] Lock released locally (DB release failed): ${jobType}`);
+    log.error({ err: error, jobType }, "DB lock release error");
+    log.info({ jobType }, "Lock released locally (DB release failed)");
   } else {
-    console.log(`[JobLock] Lock released: ${jobType}`);
+    log.info({ jobType }, "Lock released");
   }
 }
 
@@ -84,7 +87,7 @@ export async function isLocked(jobType: string): Promise<boolean> {
   });
 
   if (error) {
-    console.error(`[JobLock] DB lock check error for ${jobType}: ${error.message}`);
+    log.error({ err: error, jobType }, "DB lock check error");
     return false;
   }
 

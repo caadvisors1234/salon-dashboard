@@ -3,6 +3,9 @@ import { getSession } from "@/lib/auth/guards";
 import { deleteAllTokens } from "@/lib/gbp/token-store";
 import { apiSuccess, apiError } from "@/lib/api/response";
 import { logAudit } from "@/lib/audit/logger";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("OAuthDisconnect");
 
 /**
  * POST /api/oauth/google/disconnect
@@ -29,7 +32,7 @@ export async function POST(request: NextRequest) {
       message: "Google アカウントの接続を解除しました",
     });
   } catch (err) {
-    console.error("OAuth disconnect error:", err);
+    log.error({ err }, "OAuth disconnect error");
     return apiError("接続解除に失敗しました", 500);
   }
 }

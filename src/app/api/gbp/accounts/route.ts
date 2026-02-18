@@ -1,6 +1,9 @@
 import { getSession } from "@/lib/auth/guards";
 import { getStoredGbpAccounts } from "@/lib/gbp/accounts";
 import { apiSuccess, apiError } from "@/lib/api/response";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("GBPAccounts");
 
 /**
  * GET /api/gbp/accounts
@@ -16,7 +19,7 @@ export async function GET() {
     const accounts = await getStoredGbpAccounts();
     return apiSuccess({ accounts });
   } catch (err) {
-    console.error("Failed to fetch GBP accounts:", err);
+    log.error({ err }, "Failed to fetch GBP accounts");
     return apiError("GBP アカウント一覧の取得に失敗しました", 500);
   }
 }

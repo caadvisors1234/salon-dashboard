@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth/guards";
 import { apiSuccess, apiError } from "@/lib/api/response";
 import { logAudit } from "@/lib/audit/logger";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("HPBData");
 
 type DeleteRequest = {
   locationId: string;
@@ -132,7 +135,7 @@ export async function DELETE(request: NextRequest) {
     .in("year_month", existingYearMonths);
 
   if (deleteError) {
-    console.error("[HPB Data] Delete error:", deleteError);
+    log.error({ err: deleteError }, "Delete error");
     return apiError("データの削除に失敗しました", 500);
   }
 
@@ -151,7 +154,7 @@ export async function DELETE(request: NextRequest) {
       .neq("status", "deleted");
 
     if (logUpdateError) {
-      console.error("Failed to update upload log status:", logUpdateError);
+      log.error({ err: logUpdateError }, "Failed to update upload log status");
     }
   }
 
@@ -167,7 +170,7 @@ export async function DELETE(request: NextRequest) {
     });
 
   if (auditLogError) {
-    console.error("Failed to insert deletion log:", auditLogError);
+    log.error({ err: auditLogError }, "Failed to insert deletion log");
   }
 
   logAudit({

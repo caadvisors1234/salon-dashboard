@@ -17,9 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { updateUser } from "@/lib/admin/actions";
+import { useOrgSelection } from "@/hooks/use-org-selection";
+import { OrgSelector } from "@/components/admin/org-selector";
 import type { UserWithOrgs } from "@/lib/admin/actions";
 import type { UserRole } from "@/types";
 
@@ -41,7 +42,7 @@ export function UserEditDialog({
   const [displayName, setDisplayName] = useState(user.displayName ?? "");
   const [role, setRole] = useState<UserRole>(user.role as UserRole);
   const [orgId, setOrgId] = useState(user.orgId ?? "");
-  const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>(
+  const { selectedOrgIds, toggleOrg } = useOrgSelection(
     user.assignedOrgs.map((o) => o.id)
   );
   const [loading, setLoading] = useState(false);
@@ -65,12 +66,6 @@ export function UserEditDialog({
     } else {
       toast.error(result.error);
     }
-  };
-
-  const toggleOrg = (oid: string) => {
-    setSelectedOrgIds((prev) =>
-      prev.includes(oid) ? prev.filter((id) => id !== oid) : [...prev, oid]
-    );
   };
 
   return (
@@ -131,23 +126,11 @@ export function UserEditDialog({
           )}
 
           {role === "staff" && organizations.length > 0 && (
-            <div className="space-y-2">
-              <Label>担当組織</Label>
-              <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-3">
-                {organizations.map((org) => (
-                  <label
-                    key={org.id}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <Checkbox
-                      checked={selectedOrgIds.includes(org.id)}
-                      onCheckedChange={() => toggleOrg(org.id)}
-                    />
-                    {org.name}
-                  </label>
-                ))}
-              </div>
-            </div>
+            <OrgSelector
+              organizations={organizations}
+              selectedOrgIds={selectedOrgIds}
+              onToggle={toggleOrg}
+            />
           )}
 
           <div className="flex justify-end gap-2">

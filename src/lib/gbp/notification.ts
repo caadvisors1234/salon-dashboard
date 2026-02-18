@@ -1,5 +1,8 @@
 import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("GBPNotification");
 
 /**
  * OAuth トークン失効時に Admin ユーザーにメール通知を送信する。
@@ -15,7 +18,7 @@ export async function notifyTokenInvalidation(): Promise<void> {
     .eq("role", "admin");
 
   if (error || !admins || admins.length === 0) {
-    console.error("Failed to fetch admin users for notification:", error);
+    log.error({ err: error }, "Failed to fetch admin users for notification");
     return;
   }
 
@@ -41,16 +44,17 @@ export async function notifyTokenInvalidation(): Promise<void> {
 
 日時: ${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}`,
       });
-      console.log("[GBP Notification] Token invalidation email sent to admins");
+      log.info("Token invalidation email sent to admins");
     } catch (emailError) {
-      console.error("[GBP Notification] Failed to send email:", emailError);
+      log.error({ err: emailError }, "Failed to send email");
     }
   }
 
   // batch_logs にトークン失効イベントを1件記録（メール送信結果に関わらず）
   try {
-    console.warn(
-      `[GBP Notification] OAuth token invalidated. Admins: ${adminEmails.join(", ")}`
+    log.warn(
+      { adminEmails },
+      "OAuth token invalidated"
     );
 
     await supabase.from("batch_logs").insert({
@@ -60,6 +64,6 @@ export async function notifyTokenInvalidation(): Promise<void> {
       metadata: { admin_emails: adminEmails },
     });
   } catch (notifyError) {
-    console.error("[GBP Notification] Failed to log token invalidation:", notifyError);
+    log.error({ err: notifyError }, "Failed to log token invalidation");
   }
 }

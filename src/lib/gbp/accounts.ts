@@ -1,5 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GBP_API, type GbpAccount, type AccountsListResponse, type GbpLocation, type LocationsListResponse, type VoiceOfMerchantState } from "./types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("GBPAccounts");
 
 /**
  * GBP アカウント一覧を取得して gbp_accounts テーブルに保存する
@@ -127,17 +130,18 @@ export async function fetchVoiceOfMerchantState(
     );
 
     if (!response.ok) {
-      console.error(
-        `Failed to fetch VoiceOfMerchantState for ${locationId}: ${response.status}`
+      log.error(
+        { locationId, status: response.status },
+        "Failed to fetch VoiceOfMerchantState"
       );
       return null;
     }
 
     return await response.json();
   } catch (err) {
-    console.error(
-      `Error fetching VoiceOfMerchantState for ${locationId}:`,
-      err
+    log.error(
+      { err, locationId },
+      "Error fetching VoiceOfMerchantState"
     );
     return null;
   }
