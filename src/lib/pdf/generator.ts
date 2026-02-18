@@ -5,6 +5,8 @@ import archiver from "archiver";
 const REPORT_READY_TIMEOUT = 30_000; // 30秒
 const REPORT_READY_POLL_INTERVAL = 500; // 500ms
 const BROWSER_IDLE_TIMEOUT_MS = 60_000; // 1分
+const _parsedScale = parseFloat(process.env.PDF_DEVICE_SCALE_FACTOR || "1.5");
+const PDF_DEVICE_SCALE_FACTOR = Number.isNaN(_parsedScale) ? 1.5 : Math.max(1, Math.min(3, _parsedScale));
 
 function getBaseUrl(): string {
   return process.env.REPORT_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
@@ -152,7 +154,7 @@ export async function generateStorePdf(
     });
 
     // 297mm ≈ 1122px @96dpi — report-page幅と一致させる
-    await page.setViewport({ width: 1122, height: 793, deviceScaleFactor: 2 });
+    await page.setViewport({ width: 1122, height: 793, deviceScaleFactor: PDF_DEVICE_SCALE_FACTOR });
 
     await page.goto(url, { waitUntil: "networkidle0", timeout: 30_000 });
 

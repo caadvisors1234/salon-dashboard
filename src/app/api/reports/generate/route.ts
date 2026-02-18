@@ -7,6 +7,8 @@ import { pdfQueue } from "@/lib/pdf/queue";
 import { pdfRateLimit } from "@/lib/pdf/rate-limit";
 import { generateStorePdf, generateClientZip } from "@/lib/pdf/generator";
 import { getOrgLocations, getOrgName } from "@/lib/pdf/report-queries";
+import { apiError } from "@/lib/api/response";
+import { logAudit } from "@/lib/audit/logger";
 
 // Next.js API Route のタイムアウト設定
 export const maxDuration = 300; // 5分（クライアント単位を考慮）
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
   // 認証チェック
   const user = await getSession();
   if (!user) {
-    return NextResponse.json({ error: "未認証です" }, { status: 401 });
+    return apiError("未認証です", 401);
   }
 
   // リクエストボディのバリデーション
@@ -31,21 +33,21 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "不正なリクエストボディです" }, { status: 400 });
+    return apiError("不正なリクエストボディです", 400);
   }
 
   const { type, locationId, orgId, startMonth, endMonth } = body;
 
   if (!type || !["store", "client"].includes(type)) {
-    return NextResponse.json({ error: "type は 'store' または 'client' を指定してください" }, { status: 400 });
+    return apiError("type は 'store' または 'client' を指定してください", 400);
   }
 
   if (!startMonth || !endMonth || !/^\d{4}-\d{2}$/.test(startMonth) || !/^\d{4}-\d{2}$/.test(endMonth)) {
-    return NextResponse.json({ error: "startMonth, endMonth は YYYY-MM 形式で指定してください" }, { status: 400 });
+    return apiError("startMonth, endMonth は YYYY-MM 形式で指定してください", 400);
   }
 
   if (startMonth > endMonth) {
-    return NextResponse.json({ error: "startMonth は endMonth 以前の日付にしてください" }, { status: 400 });
+    return apiError("startMonth は endMonth 以前の日付にしてください", 400);
   }
 
   // 権限チェック + ファイル名用データ取得
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
 
   if (type === "store") {
     if (!locationId) {
-      return NextResponse.json({ error: "locationId は必須です" }, { status: 400 });
+      return apiError("locationId は必須です", 400);
     }
 
     // locationId の org_id を取得して権限確認 + ファイル名用データ取得
@@ -66,12 +68,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!location) {
-      return NextResponse.json({ error: "店舗が見つかりません" }, { status: 400 });
+      return apiError("店舗が見つかりません", 400);
     }
 
     const hasAccess = await checkOrgAccess(user, location.org_id);
     if (!hasAccess) {
-      return NextResponse.json({ error: "この店舗のレポート生成権限がありません" }, { status: 403 });
+      return apiError("この店舗のレポート生成権限がありません", 403);
     }
 
     // ファイル名用に保持（後続のDB問い合わせを削減）
@@ -86,40 +88,30 @@ export async function POST(request: NextRequest) {
   } else {
     // client
     if (!orgId) {
-      return NextResponse.json({ error: "orgId は必須です" }, { status: 400 });
+      return apiError("orgId は必須です", 400);
     }
 
     const hasAccess = await checkOrgAccess(user, orgId);
     if (!hasAccess) {
-      return NextResponse.json({ error: "このクライアントのレポート生成権限がありません" }, { status: 403 });
+      return apiError("このクライアントのレポート生成権限がありません", 403);
     }
   }
 
   // ユーザー単位レート制限チェック
-  // NOTE: check()はカウントを消費する（生成成功時ではなく呼出時にカウント）。
-  // 後続のキュー満杯や生成失敗でもカウントされるが、乱用防止の観点で許容する。
   const rateCheck = pdfRateLimit.check(user.id);
   if (!rateCheck.allowed) {
-    return NextResponse.json(
-      { error: "レポート生成の上限に達しました（1時間あたり5件まで）" },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(
-            Math.ceil((rateCheck.resetAt - Date.now()) / 1000)
-          ),
-        },
-      }
+    return apiError(
+      "レポート生成の上限に達しました（1時間あたり5件まで）",
+      429,
+      { "Retry-After": String(Math.ceil((rateCheck.resetAt - Date.now()) / 1000)) }
     );
   }
 
   // キュー状態チェック（待ちが多すぎる場合は拒否）
   const status = pdfQueue.getStatus();
   if (status.waiting >= 10) {
-    return NextResponse.json(
-      { error: "生成キューが満杯です", queuePosition: status.waiting },
-      { status: 429 }
-    );
+    console.warn(`[Report Generate] Queue full: ${status.waiting} waiting`);
+    return apiError("生成キューが満杯です", 429);
   }
 
   try {
@@ -139,6 +131,15 @@ export async function POST(request: NextRequest) {
       const locName = (locationName ?? "店舗").replace(/[/\\?%*:|"<>]/g, "_");
       const fileName = `${orgName}_${locName}_${startMonth}-${endMonth}.pdf`;
 
+      logAudit({
+        userId: user.id,
+        action: "report.generate",
+        resourceType: "report",
+        resourceId: locationId,
+        metadata: { type, startMonth, endMonth },
+        ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
+      });
+
       return new NextResponse(new Uint8Array(pdfBuffer), {
         headers: {
           "Content-Type": "application/pdf",
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
 
       const locations = await getOrgLocations(orgId!);
       if (locations.length === 0) {
-        return NextResponse.json({ error: "対象店舗がありません" }, { status: 400 });
+        return apiError("対象店舗がありません", 400);
       }
 
       const orgName = await getOrgName(orgId!);
@@ -172,6 +173,15 @@ export async function POST(request: NextRequest) {
 
       const fileName = `${safeOrgName}_レポート_${startMonth}-${endMonth}.zip`;
 
+      logAudit({
+        userId: user.id,
+        action: "report.generate",
+        resourceType: "report",
+        resourceId: orgId,
+        metadata: { type, startMonth, endMonth },
+        ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
+      });
+
       return new NextResponse(new Uint8Array(zipBuffer), {
         headers: {
           "Content-Type": "application/zip",
@@ -180,8 +190,7 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (err) {
-    console.error("レポート生成エラー:", err);
-    const message = err instanceof Error ? err.message : "PDF生成に失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[Report Generate] Error:", err);
+    return apiError("PDF生成に失敗しました", 500);
   }
 }

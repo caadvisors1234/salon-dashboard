@@ -38,7 +38,7 @@ describe("GET /api/reports/queue-status", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ running: 1, waiting: 3 });
+    expect(body).toEqual({ success: true, data: { running: 1, waiting: 3 } });
   });
 
   it("200: キュー空の状態", async () => {
@@ -48,6 +48,6 @@ describe("GET /api/reports/queue-status", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ running: 0, waiting: 0 });
+    expect(body).toEqual({ success: true, data: { running: 0, waiting: 0 } });
   });
 });

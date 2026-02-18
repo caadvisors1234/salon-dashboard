@@ -2,55 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth/guards";
 import { parseHpbCsv } from "@/lib/hpb/csv-parser";
-import { MAX_FILE_SIZE, type ParseMessage } from "@/lib/hpb/constants";
+import { MAX_FILE_SIZE } from "@/lib/hpb/constants";
+import { apiSuccess, apiError } from "@/lib/api/response";
+import { logAudit } from "@/lib/audit/logger";
 
-type UploadSuccessResponse = {
-  success: true;
-  data: {
-    recordCount: number;
-    skippedRows: number;
-    warnings: ParseMessage[];
-    duplicateMonths: string[];
-  };
-};
-
-type UploadConfirmResponse = {
-  success: false;
-  needsConfirmation: true;
-  duplicateMonths: string[];
-  warnings: ParseMessage[];
-  skippedRows: number;
-  validRowCount: number;
-};
-
-type UploadErrorResponse = {
-  success: false;
-  error: string;
-  details?: ParseMessage[];
-};
-
-type UploadResponse =
-  | UploadSuccessResponse
-  | UploadConfirmResponse
-  | UploadErrorResponse;
-
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<UploadResponse>> {
+export async function POST(request: NextRequest) {
   // 1. 認証・権限チェック
   const session = await getSession();
   if (!session) {
-    return NextResponse.json(
-      { success: false, error: "認証が必要です" },
-      { status: 401 }
-    );
+    return apiError("認証が必要です", 401);
   }
 
   if (session.role !== "admin" && session.role !== "staff") {
-    return NextResponse.json(
-      { success: false, error: "この操作にはAdmin / Staff権限が必要です" },
-      { status: 403 }
-    );
+    return apiError("この操作にはAdmin / Staff権限が必要です", 403);
   }
 
   // 2. FormData 取得
@@ -58,10 +22,7 @@ export async function POST(
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json(
-      { success: false, error: "リクエストの解析に失敗しました" },
-      { status: 400 }
-    );
+    return apiError("リクエストの解析に失敗しました", 400);
   }
 
   const file = formData.get("file") as File | null;
@@ -69,17 +30,11 @@ export async function POST(
   const overwrite = formData.get("overwrite") === "true";
 
   if (!file) {
-    return NextResponse.json(
-      { success: false, error: "CSVファイルが指定されていません" },
-      { status: 400 }
-    );
+    return apiError("CSVファイルが指定されていません", 400);
   }
 
   if (!file.name.toLowerCase().endsWith(".csv")) {
-    return NextResponse.json(
-      { success: false, error: "CSVファイルのみアップロード可能です" },
-      { status: 400 }
-    );
+    return apiError("CSVファイルのみアップロード可能です", 400);
   }
 
   // MIMEタイプ検証（ブラウザがMIMEを設定しない場合は空のため許可）
@@ -90,27 +45,18 @@ export async function POST(
     "application/vnd.ms-excel",
   ];
   if (file.type && !allowedMimeTypes.includes(file.type)) {
-    return NextResponse.json(
-      { success: false, error: "許可されていないファイル形式です" },
-      { status: 400 }
-    );
+    return apiError("許可されていないファイル形式です", 400);
   }
 
   if (!locationId) {
-    return NextResponse.json(
-      { success: false, error: "対象店舗が指定されていません" },
-      { status: 400 }
-    );
+    return apiError("対象店舗が指定されていません", 400);
   }
 
   // 3. ファイルサイズチェック
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `ファイルサイズが上限（5MB）を超えています（${(file.size / 1024 / 1024).toFixed(1)}MB）`,
-      },
-      { status: 400 }
+    return apiError(
+      `ファイルサイズが上限（5MB）を超えています（${(file.size / 1024 / 1024).toFixed(1)}MB）`,
+      400
     );
   }
 
@@ -124,13 +70,7 @@ export async function POST(
     .single();
 
   if (locError || !location) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "指定された店舗が見つからないか、アクセス権がありません",
-      },
-      { status: 404 }
-    );
+    return apiError("指定された店舗が見つからないか、アクセス権がありません", 404);
   }
 
   // 5. CSVパース
@@ -162,23 +102,16 @@ export async function POST(
 
   const parseResult = parseHpbCsv(buffer);
 
-  // パースエラーがあれば返却
+  // パースエラーがあれば返却（details フィールドを含むため apiError ではなく直接構築）
   if (parseResult.errors.length > 0) {
     return NextResponse.json(
-      {
-        success: false,
-        error: parseResult.errors[0].message,
-        details: parseResult.errors,
-      },
+      { success: false, error: parseResult.errors[0].message, details: parseResult.errors },
       { status: 400 }
     );
   }
 
   if (parseResult.rows.length === 0) {
-    return NextResponse.json(
-      { success: false, error: "取り込み可能なデータ行がありません" },
-      { status: 400 }
-    );
+    return apiError("取り込み可能なデータ行がありません", 400);
   }
 
   // 6. 重複チェック
@@ -191,7 +124,7 @@ export async function POST(
 
   const duplicateMonths = (existingRecords ?? []).map((r) => r.year_month);
 
-  // 7. 重複ありかつ上書き未確認 → 確認レスポンス
+  // 7. 重複ありかつ上書き未確認 → 確認レスポンス（needsConfirmation を含む特殊形式のため直接構築）
   if (duplicateMonths.length > 0 && !overwrite) {
     return NextResponse.json({
       success: false,
@@ -224,7 +157,7 @@ export async function POST(
     // Storage保存失敗はワーニングとして続行（データ格納は実行する）
     parseResult.warnings.push({
       level: "warning",
-      message: `CSV原本の保存に失敗しました: ${storageError.message}`,
+      message: "CSV原本の保存に失敗しました",
     });
   }
 
@@ -239,13 +172,8 @@ export async function POST(
     .upsert(upsertRows, { onConflict: "location_id,year_month" });
 
   if (upsertError) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `データの保存に失敗しました: ${upsertError.message}`,
-      },
-      { status: 500 }
-    );
+    console.error("[HPB Upload] Upsert error:", upsertError);
+    return apiError("データの保存に失敗しました", 500);
   }
 
   // 10. hpb_upload_logs にログ記録
@@ -267,14 +195,21 @@ export async function POST(
         : null,
   });
 
-  // 11. 結果レスポンス
-  return NextResponse.json({
-    success: true,
-    data: {
-      recordCount: parseResult.rows.length,
-      skippedRows: parseResult.skippedRows,
-      warnings: parseResult.warnings,
-      duplicateMonths,
-    },
+  // 11. 監査ログ
+  logAudit({
+    userId: session.id,
+    action: "hpb.upload",
+    resourceType: "hpb_data",
+    resourceId: locationId,
+    metadata: { recordCount: parseResult.rows.length, fileName: file.name },
+    ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
+  });
+
+  // 12. 結果レスポンス
+  return apiSuccess({
+    recordCount: parseResult.rows.length,
+    skippedRows: parseResult.skippedRows,
+    warnings: parseResult.warnings,
+    duplicateMonths,
   });
 }

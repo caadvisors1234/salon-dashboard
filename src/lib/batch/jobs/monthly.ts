@@ -6,6 +6,7 @@ import pLimit from "p-limit";
 import { createGbpClient } from "@/lib/gbp/client";
 import { fetchMonthlyKeywords, saveMonthlyKeywords } from "@/lib/gbp/keywords";
 import { getTargetLocations, type LocationTarget } from "./daily";
+import { sleep } from "@/lib/utils";
 
 const CONCURRENCY_LIMIT = 5;
 
@@ -26,10 +27,6 @@ export interface MonthlyJobResult {
   successCount: number;
   failureCount: number;
   results: MonthlyLocationResult[];
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

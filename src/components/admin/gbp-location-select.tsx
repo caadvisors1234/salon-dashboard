@@ -44,9 +44,10 @@ export function GbpLocationSelect({
     async function fetchData() {
       try {
         const statusRes = await fetch("/api/oauth/google/status");
-        const status = await statusRes.json();
+        const statusJson = await statusRes.json();
+        const status = statusJson.data;
 
-        if (status.status !== "connected") {
+        if (!status || status.status !== "connected") {
           setConnected(false);
           setLoading(false);
           return;
@@ -57,8 +58,8 @@ export function GbpLocationSelect({
         const locsRes = await fetch("/api/gbp/locations");
         const locsData = await locsRes.json();
 
-        if (locsData.locations) {
-          setLocations(locsData.locations);
+        if (locsData.data?.locations) {
+          setLocations(locsData.data.locations);
         }
       } catch {
         setConnected(false);

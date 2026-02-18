@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { PeriodPreset, PeriodRange } from "@/types/dashboard";
+import { monthsAgo, getCurrentMonth } from "@/lib/utils";
 
 const PRESETS: { value: PeriodPreset; label: string }[] = [
   { value: "3m", label: "過去3ヶ月" },
@@ -16,21 +17,8 @@ const PRESETS: { value: PeriodPreset; label: string }[] = [
   { value: "12m", label: "過去12ヶ月" },
 ];
 
-/** YYYY-MM 形式で N ヶ月前を返す（月末日の繰り越しを防止） */
-function monthsAgo(n: number): string {
-  const now = new Date();
-  const d = new Date(now.getFullYear(), now.getMonth() - n, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-/** 現在の年月を返す */
-function currentMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function getPresetRange(preset: PeriodPreset): PeriodRange {
-  const end = currentMonth();
+  const end = getCurrentMonth();
   switch (preset) {
     case "3m":
       return { preset, startMonth: monthsAgo(2), endMonth: end };

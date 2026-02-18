@@ -8,6 +8,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createGbpClient } from "@/lib/gbp/client";
 import { fetchDailyMetrics, saveDailyMetrics } from "@/lib/gbp/performance";
 import { fetchRatingSnapshot, saveRatingSnapshot } from "@/lib/gbp/reviews";
+import { sleep } from "@/lib/utils";
+import { shouldProcess, recordSuccess, recordFailure } from "@/lib/batch/circuit-breaker";
 
 const CONCURRENCY_LIMIT = 5;
 
@@ -24,6 +26,7 @@ export interface JobLocationResult {
   locationId: string;
   locationName: string;
   success: boolean;
+  skipped?: boolean;
   metricsCount?: number;
   error?: string;
 }
@@ -33,6 +36,8 @@ export interface DailyJobResult {
   totalLocations: number;
   successCount: number;
   failureCount: number;
+  skippedCount: number;
+  skippedLocations: { id: string; name: string }[];
   results: JobLocationResult[];
 }
 
@@ -72,10 +77,6 @@ export async function getGbpAccountId(): Promise<string | null> {
     .single();
 
   return data?.gbp_account_id ?? null;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -154,6 +155,8 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
       totalLocations: 0,
       successCount: 0,
       failureCount: 0,
+      skippedCount: 0,
+      skippedLocations: [],
       results: [],
     };
   }
@@ -166,13 +169,31 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
   console.log(`[DailyJob] Processing ${locations.length} locations (concurrency: ${CONCURRENCY_LIMIT})`);
 
   const limit = pLimit(CONCURRENCY_LIMIT);
+
   const settled = await Promise.allSettled(
     locations.map((location) =>
       limit(async () => {
+        // サーキットブレーカー: 連続失敗が閾値を超えた店舗はスキップ
+        const canProcess = await shouldProcess(location.id);
+        if (!canProcess) {
+          console.warn(`[DailyJob] ⊘ ${location.name}: skipped by circuit breaker`);
+          return {
+            locationId: location.id,
+            locationName: location.name,
+            success: false,
+            skipped: true,
+            error: "Circuit breaker: skipped due to consecutive failures",
+          } satisfies JobLocationResult;
+        }
+
         const result = await processLocation(location, date, gbpAccountId);
+
+        // サーキットブレーカー: 成功/失敗を記録
         if (result.success) {
+          await recordSuccess(location.id);
           console.log(`[DailyJob] ✓ ${location.name} (${result.metricsCount} metrics)`);
         } else {
+          await recordFailure(location.id, result.error || "Unknown error");
           console.error(`[DailyJob] ✗ ${location.name}: ${result.error}`);
         }
         return result;
@@ -192,17 +213,30 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
   );
 
   const successCount = results.filter((r) => r.success).length;
-  const failureCount = results.filter((r) => !r.success).length;
+  const skippedCount = results.filter((r) => r.skipped).length;
+  const failureCount = results.filter((r) => !r.success && !r.skipped).length;
 
   console.log(
-    `[DailyJob] Completed: ${successCount} success, ${failureCount} failure out of ${locations.length}`
+    `[DailyJob] Completed: ${successCount} success, ${failureCount} failure, ${skippedCount} skipped out of ${locations.length}`
   );
+
+  const skippedLocations = results
+    .filter((r) => r.skipped)
+    .map((r) => ({ id: r.locationId, name: r.locationName }));
+
+  if (skippedLocations.length > 0) {
+    console.warn(
+      `[DailyJob] Skipped locations: ${skippedLocations.map((l) => l.name).join(", ")}`
+    );
+  }
 
   return {
     targetDate: date,
     totalLocations: locations.length,
     successCount,
     failureCount,
+    skippedCount,
+    skippedLocations,
     results,
   };
 }

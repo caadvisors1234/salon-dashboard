@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   PieChart,
   Pie,
@@ -44,7 +45,7 @@ const NAME_TO_KEY: Record<string, string> = {
   "Googleマップ (モバイル)": "mobileMaps",
 };
 
-export function DeviceBreakdownChart({ data, monthLabel }: { data: DeviceBreakdownItem[]; monthLabel: string }) {
+export const DeviceBreakdownChart = memo(function DeviceBreakdownChart({ data, monthLabel }: { data: DeviceBreakdownItem[]; monthLabel: string }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   const chartData = data.map((item) => ({
     ...item,
@@ -114,4 +115,4 @@ export function DeviceBreakdownChart({ data, monthLabel }: { data: DeviceBreakdo
       </CardContent>
     </Card>
   );
-}
+});

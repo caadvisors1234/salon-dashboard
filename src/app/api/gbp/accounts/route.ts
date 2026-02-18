@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/guards";
 import { getStoredGbpAccounts } from "@/lib/gbp/accounts";
+import { apiSuccess, apiError } from "@/lib/api/response";
 
 /**
  * GET /api/gbp/accounts
@@ -9,20 +9,14 @@ import { getStoredGbpAccounts } from "@/lib/gbp/accounts";
 export async function GET() {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return NextResponse.json(
-      { error: "この操作は管理者のみ実行できます" },
-      { status: 403 }
-    );
+    return apiError("この操作は管理者のみ実行できます", 403);
   }
 
   try {
     const accounts = await getStoredGbpAccounts();
-    return NextResponse.json({ accounts });
+    return apiSuccess({ accounts });
   } catch (err) {
     console.error("Failed to fetch GBP accounts:", err);
-    return NextResponse.json(
-      { error: "GBP アカウント一覧の取得に失敗しました" },
-      { status: 500 }
-    );
+    return apiError("GBP アカウント一覧の取得に失敗しました", 500);
   }
 }

@@ -1,5 +1,6 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/guards";
+import { apiSuccess, apiError } from "@/lib/api/response";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createGbpClient } from "@/lib/gbp/client";
 import { fetchDailyMetrics, saveDailyMetrics } from "@/lib/gbp/performance";
@@ -15,28 +16,19 @@ import { fetchRatingSnapshot, saveRatingSnapshot } from "@/lib/gbp/reviews";
 export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return NextResponse.json(
-      { error: "この操作は管理者のみ実行できます" },
-      { status: 403 }
-    );
+    return apiError("この操作は管理者のみ実行できます", 403);
   }
 
   let body: { locationId?: string; targetDate?: string };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "リクエストの解析に失敗しました" },
-      { status: 400 }
-    );
+    return apiError("リクエストの解析に失敗しました", 400);
   }
   const { locationId } = body;
 
   if (!locationId) {
-    return NextResponse.json(
-      { error: "locationId は必須です" },
-      { status: 400 }
-    );
+    return apiError("locationId は必須です", 400);
   }
 
   // locations テーブルから gbp_location_id を取得
@@ -48,17 +40,11 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (locError || !location) {
-    return NextResponse.json(
-      { error: "指定されたロケーションが見つかりません" },
-      { status: 404 }
-    );
+    return apiError("指定されたロケーションが見つかりません", 404);
   }
 
   if (!location.gbp_location_id) {
-    return NextResponse.json(
-      { error: "このロケーションに GBP Location ID が設定されていません" },
-      { status: 400 }
-    );
+    return apiError("このロケーションに GBP Location ID が設定されていません", 400);
   }
 
   // GBP アカウント ID を取得（Reviews API 用）
@@ -79,10 +65,7 @@ export async function POST(request: NextRequest) {
   // targetDate のフォーマット検証
   const targetDateObj = new Date(targetDate + "T00:00:00Z");
   if (isNaN(targetDateObj.getTime())) {
-    return NextResponse.json(
-      { error: "targetDate の形式が不正です（YYYY-MM-DD）" },
-      { status: 400 }
-    );
+    return apiError("targetDate の形式が不正です（YYYY-MM-DD）", 400);
   }
 
   // 月次キーワードは前月をデフォルトにする（当月データは通常未提供）
@@ -172,7 +155,7 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  return NextResponse.json({
+  return apiSuccess({
     locationId: location.id,
     locationName: location.name,
     gbpLocationId: location.gbp_location_id,

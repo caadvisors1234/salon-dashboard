@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentMonth } from "@/lib/utils";
 import type {
   ClientSummary,
   LocationSummary,
@@ -25,12 +26,6 @@ import {
 } from "./utils";
 
 // --- ローカルヘルパー ---
-
-/** 現在の年月を YYYY-MM で返す */
-function getCurrentMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
 
 /** 当月の期間ラベルを生成（月途中なら短縮版+完全版、完了月なら undefined） */
 function getCurrentPeriodLabel(): { short: string; full: string } | undefined {
@@ -482,7 +477,7 @@ export async function getHpbData(locationId: string): Promise<HpbData> {
   // HPB 月次指標（全月分）
   const { data: hpbMetrics } = await supabase
     .from("hpb_monthly_metrics")
-    .select("*")
+    .select("year_month, salon_pv, salon_pv_area_avg, cvr, cvr_area_avg, acr, acr_area_avg")
     .eq("location_id", locationId)
     .order("year_month", { ascending: true });
 

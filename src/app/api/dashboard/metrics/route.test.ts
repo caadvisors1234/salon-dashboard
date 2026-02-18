@@ -103,11 +103,12 @@ describe("GET /api/dashboard/metrics", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.timeSeries).toEqual([{ date: "2025-01-01", value: 100 }]);
-    expect(body.deviceBreakdown).toEqual([
+    expect(body.success).toBe(true);
+    expect(body.data.timeSeries).toEqual([{ date: "2025-01-01", value: 100 }]);
+    expect(body.data.deviceBreakdown).toEqual([
       { device: "DESKTOP_SEARCH", value: 50 },
     ]);
-    expect(body.deviceMonthLabel).toBe("2025年3月");
+    expect(body.data.deviceMonthLabel).toBe("2025年3月");
   });
 
   it("queries に正しいパラメータを渡す", async () => {

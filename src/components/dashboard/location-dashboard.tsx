@@ -54,10 +54,10 @@ export function LocationDashboard({
         });
         const res = await fetch(`/api/dashboard/metrics?${params}`);
         if (res.ok) {
-          const data = await res.json();
-          setTimeSeries(data.timeSeries);
-          setDeviceBreakdown(data.deviceBreakdown);
-          setDeviceMonthLabel(data.deviceMonthLabel);
+          const json = await res.json();
+          setTimeSeries(json.data.timeSeries);
+          setDeviceBreakdown(json.data.deviceBreakdown);
+          setDeviceMonthLabel(json.data.deviceMonthLabel);
         }
       } finally {
         setLoading(false);

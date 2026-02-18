@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { FileDown, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { monthsAgo, getCurrentMonth } from "@/lib/utils";
+import { useReportGeneration } from "@/hooks/use-report-generation";
 
 type ReportDialogProps = {
   type: "store" | "client";
@@ -40,17 +41,6 @@ function generateMonthOptions(): { value: string; label: string }[] {
   return options;
 }
 
-function monthsAgo(n: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function currentMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 export function ReportDialog({
   type,
   locationId,
@@ -59,9 +49,8 @@ export function ReportDialog({
 }: ReportDialogProps) {
   const [open, setOpen] = useState(false);
   const [startMonth, setStartMonth] = useState(monthsAgo(5));
-  const [endMonth, setEndMonth] = useState(currentMonth());
-  const [generating, setGenerating] = useState(false);
-  const [queueInfo, setQueueInfo] = useState<string | null>(null);
+  const [endMonth, setEndMonth] = useState(getCurrentMonth());
+  const { generating, queueInfo, generate } = useReportGeneration();
 
   const monthOptions = useMemo(() => generateMonthOptions(), []);
 
@@ -71,88 +60,10 @@ export function ReportDialog({
       ? "この店舗のパフォーマンスレポートをPDFで生成します。"
       : "全店舗のパフォーマンスレポートをZIPファイルで一括生成します。";
 
-  const handleGenerate = useCallback(async () => {
-    if (startMonth > endMonth) {
-      toast.error("開始年月は終了年月以前を指定してください");
-      return;
-    }
-
-    setGenerating(true);
-    setQueueInfo(null);
-
-    // キュー状態ポーリング
-    const pollInterval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/reports/queue-status");
-        if (res.ok) {
-          const status = await res.json();
-          if (status.waiting > 0) {
-            setQueueInfo(`待機中（${status.waiting}番目）`);
-          } else {
-            setQueueInfo(null);
-          }
-        }
-      } catch {
-        // ポーリングエラーは無視
-      }
-    }, 3000);
-
-    try {
-      const body: Record<string, string> = {
-        type,
-        startMonth,
-        endMonth,
-      };
-      if (type === "store" && locationId) {
-        body.locationId = locationId;
-      }
-      if (type === "client" && orgId) {
-        body.orgId = orgId;
-      }
-
-      const res = await fetch("/api/reports/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "レポート生成に失敗しました" }));
-        throw new Error(err.error || "レポート生成に失敗しました");
-      }
-
-      // Blob としてダウンロード
-      const blob = await res.blob();
-      const contentDisposition = res.headers.get("Content-Disposition");
-      let fileName = type === "store" ? "report.pdf" : "report.zip";
-
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-        if (match) {
-          fileName = decodeURIComponent(match[1]);
-        }
-      }
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast.success("レポートを生成しました");
-      setOpen(false);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "レポート生成に失敗しました";
-      toast.error(message);
-    } finally {
-      clearInterval(pollInterval);
-      setGenerating(false);
-      setQueueInfo(null);
-    }
-  }, [type, locationId, orgId, startMonth, endMonth]);
+  const handleGenerate = async () => {
+    const success = await generate({ type, locationId, orgId, startMonth, endMonth });
+    if (success) setOpen(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

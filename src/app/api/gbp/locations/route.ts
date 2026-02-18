@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/guards";
+import { apiSuccess, apiError } from "@/lib/api/response";
 import { getStoredGbpAccounts, fetchGbpLocations, fetchVoiceOfMerchantState } from "@/lib/gbp/accounts";
 import { getValidAccessToken } from "@/lib/gbp/token-store";
 import { refreshAccessToken } from "@/lib/gbp/oauth";
@@ -76,24 +76,18 @@ function determineLocationStatus(
 export async function GET() {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return NextResponse.json(
-      { error: "この操作は管理者のみ実行できます" },
-      { status: 403 }
-    );
+    return apiError("この操作は管理者のみ実行できます", 403);
   }
 
   try {
     const accessToken = await getValidAccessToken(refreshAccessToken);
     if (!accessToken) {
-      return NextResponse.json(
-        { error: "Google アカウントが接続されていません" },
-        { status: 400 }
-      );
+      return apiError("Google アカウントが接続されていません", 400);
     }
 
     const accounts = await getStoredGbpAccounts();
     if (accounts.length === 0) {
-      return NextResponse.json({ locations: [] });
+      return apiSuccess({ locations: [] });
     }
 
     const allLocations: Array<{
@@ -160,12 +154,9 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ locations: allLocations });
+    return apiSuccess({ locations: allLocations });
   } catch (err) {
     console.error("Failed to fetch GBP locations:", err);
-    return NextResponse.json(
-      { error: "GBP ロケーション一覧の取得に失敗しました" },
-      { status: 500 }
-    );
+    return apiError("GBP ロケーション一覧の取得に失敗しました", 500);
   }
 }

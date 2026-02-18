@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/guards";
 import { pdfQueue } from "@/lib/pdf/queue";
+import { apiSuccess, apiError } from "@/lib/api/response";
 
 export async function GET() {
   const user = await getSession();
   if (!user) {
-    return NextResponse.json({ error: "未認証です" }, { status: 401 });
+    return apiError("未認証です", 401);
   }
 
   const status = pdfQueue.getStatus();
-  return NextResponse.json(status);
+  return apiSuccess(status);
 }

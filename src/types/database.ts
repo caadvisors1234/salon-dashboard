@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          metadata: Json | null
+          resource_id: string | null
+          resource_type: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          resource_id?: string | null
+          resource_type: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          resource_id?: string | null
+          resource_type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       batch_locks: {
         Row: {
           expires_at: string
@@ -364,6 +397,44 @@ export type Database = {
           },
         ]
       }
+      location_batch_status: {
+        Row: {
+          consecutive_failures: number
+          disabled_at: string | null
+          last_error: string | null
+          last_failure_at: string | null
+          last_success_at: string | null
+          location_id: string
+          updated_at: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          disabled_at?: string | null
+          last_error?: string | null
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          location_id: string
+          updated_at?: string
+        }
+        Update: {
+          consecutive_failures?: number
+          disabled_at?: string | null
+          last_error?: string | null
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_batch_status_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           created_at: string
@@ -604,6 +675,10 @@ export type Database = {
       }
       get_user_role: { Args: never; Returns: string }
       is_batch_locked: { Args: { p_job_type: string }; Returns: boolean }
+      record_batch_failure: {
+        Args: { p_error: string; p_location_id: string; p_threshold?: number }
+        Returns: number
+      }
       release_batch_lock: {
         Args: { p_job_type: string; p_locked_by: string }
         Returns: boolean

@@ -1,5 +1,6 @@
 import { getValidAccessToken, invalidateToken, getStoredToken } from "./token-store";
 import { refreshAccessToken } from "./oauth";
+import { sleep } from "@/lib/utils";
 
 // ============================================
 // GBP API クライアント
@@ -20,10 +21,6 @@ async function throttle(): Promise<void> {
     );
   }
   lastRequestTime = Date.now();
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export class GbpApiClient {

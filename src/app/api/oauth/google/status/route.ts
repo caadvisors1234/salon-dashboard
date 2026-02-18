@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { apiSuccess, apiError } from "@/lib/api/response";
 import { getSession } from "@/lib/auth/guards";
 import { getStoredToken } from "@/lib/gbp/token-store";
 
@@ -18,29 +18,26 @@ export interface OAuthStatusResponse {
 export async function GET() {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return NextResponse.json(
-      { error: "この操作は管理者のみ実行できます" },
-      { status: 403 }
-    );
+    return apiError("この操作は管理者のみ実行できます", 403);
   }
 
   const token = await getStoredToken();
 
   if (!token) {
-    return NextResponse.json<OAuthStatusResponse>({
-      status: "disconnected",
+    return apiSuccess({
+      status: "disconnected" as const,
     });
   }
 
   if (!token.isValid) {
-    return NextResponse.json<OAuthStatusResponse>({
-      status: "invalid",
+    return apiSuccess({
+      status: "invalid" as const,
       googleEmail: token.googleEmail,
     });
   }
 
-  return NextResponse.json<OAuthStatusResponse>({
-    status: "connected",
+  return apiSuccess({
+    status: "connected" as const,
     googleEmail: token.googleEmail,
     tokenExpiry: token.tokenExpiry,
     scopes: token.scopes,

@@ -1,10 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth/guards";
-
-type MonthListResponse =
-  | { success: true; data: { yearMonths: string[] } }
-  | { success: false; error: string };
+import { apiSuccess, apiError } from "@/lib/api/response";
+import { logAudit } from "@/lib/audit/logger";
 
 type DeleteRequest = {
   locationId: string;
@@ -12,46 +10,23 @@ type DeleteRequest = {
   reason?: string;
 };
 
-type DeleteSuccessResponse = {
-  success: true;
-  data: { deletedCount: number };
-};
-
-type DeleteErrorResponse = {
-  success: false;
-  error: string;
-};
-
-type DeleteResponse = DeleteSuccessResponse | DeleteErrorResponse;
-
 const YEAR_MONTH_PATTERN = /^\d{6}$/;
 
-export async function GET(
-  request: NextRequest
-): Promise<NextResponse<MonthListResponse>> {
+export async function GET(request: NextRequest) {
   // 1. 認証チェック
   const session = await getSession();
   if (!session) {
-    return NextResponse.json(
-      { success: false, error: "認証が必要です" },
-      { status: 401 }
-    );
+    return apiError("認証が必要です", 401);
   }
 
   if (session.role !== "admin" && session.role !== "staff") {
-    return NextResponse.json(
-      { success: false, error: "この操作にはAdmin / Staff権限が必要です" },
-      { status: 403 }
-    );
+    return apiError("この操作にはAdmin / Staff権限が必要です", 403);
   }
 
   // 2. パラメータ取得
   const locationId = request.nextUrl.searchParams.get("locationId");
   if (!locationId) {
-    return NextResponse.json(
-      { success: false, error: "対象店舗が指定されていません" },
-      { status: 400 }
-    );
+    return apiError("対象店舗が指定されていません", 400);
   }
 
   // 3. 店舗の存在確認（RLS経由）
@@ -64,13 +39,7 @@ export async function GET(
     .single();
 
   if (locError || !location) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "指定された店舗が見つからないか、アクセス権がありません",
-      },
-      { status: 404 }
-    );
+    return apiError("指定された店舗が見つからないか、アクセス権がありません", 404);
   }
 
   // 4. 月リスト取得
@@ -81,34 +50,23 @@ export async function GET(
     .order("year_month", { ascending: false });
 
   if (metricsError) {
-    return NextResponse.json(
-      { success: false, error: "データの取得に失敗しました" },
-      { status: 500 }
-    );
+    return apiError("データの取得に失敗しました", 500);
   }
 
   const yearMonths = (metrics ?? []).map((m) => m.year_month);
 
-  return NextResponse.json({ success: true, data: { yearMonths } });
+  return apiSuccess({ yearMonths });
 }
 
-export async function DELETE(
-  request: NextRequest
-): Promise<NextResponse<DeleteResponse>> {
+export async function DELETE(request: NextRequest) {
   // 1. 認証チェック
   const session = await getSession();
   if (!session) {
-    return NextResponse.json(
-      { success: false, error: "認証が必要です" },
-      { status: 401 }
-    );
+    return apiError("認証が必要です", 401);
   }
 
   if (session.role !== "admin" && session.role !== "staff") {
-    return NextResponse.json(
-      { success: false, error: "この操作にはAdmin / Staff権限が必要です" },
-      { status: 403 }
-    );
+    return apiError("この操作にはAdmin / Staff権限が必要です", 403);
   }
 
   // 2. リクエストボディの取得
@@ -116,38 +74,23 @@ export async function DELETE(
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { success: false, error: "リクエストの解析に失敗しました" },
-      { status: 400 }
-    );
+    return apiError("リクエストの解析に失敗しました", 400);
   }
 
   const { locationId, yearMonths, reason } = body;
 
   // 3. バリデーション
   if (!locationId || typeof locationId !== "string") {
-    return NextResponse.json(
-      { success: false, error: "対象店舗が指定されていません" },
-      { status: 400 }
-    );
+    return apiError("対象店舗が指定されていません", 400);
   }
 
   if (!Array.isArray(yearMonths) || yearMonths.length === 0) {
-    return NextResponse.json(
-      { success: false, error: "削除対象の年月が指定されていません" },
-      { status: 400 }
-    );
+    return apiError("削除対象の年月が指定されていません", 400);
   }
 
   for (const ym of yearMonths) {
     if (!YEAR_MONTH_PATTERN.test(ym)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `年月の形式が不正です: ${ym}（YYYYMM形式で指定してください）`,
-        },
-        { status: 400 }
-      );
+      return apiError(`年月の形式が不正です: ${ym}（YYYYMM形式で指定してください）`, 400);
     }
   }
 
@@ -161,13 +104,7 @@ export async function DELETE(
     .single();
 
   if (locError || !location) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "指定された店舗が見つからないか、アクセス権がありません",
-      },
-      { status: 404 }
-    );
+    return apiError("指定された店舗が見つからないか、アクセス権がありません", 404);
   }
 
   // 5. 対象レコード存在確認
@@ -178,17 +115,11 @@ export async function DELETE(
     .in("year_month", yearMonths);
 
   if (checkError) {
-    return NextResponse.json(
-      { success: false, error: "データの確認に失敗しました" },
-      { status: 500 }
-    );
+    return apiError("データの確認に失敗しました", 500);
   }
 
   if (!existingRecords || existingRecords.length === 0) {
-    return NextResponse.json(
-      { success: false, error: "指定された年月のデータが見つかりません" },
-      { status: 404 }
-    );
+    return apiError("指定された年月のデータが見つかりません", 404);
   }
 
   const existingYearMonths = existingRecords.map((r) => r.year_month);
@@ -201,13 +132,8 @@ export async function DELETE(
     .in("year_month", existingYearMonths);
 
   if (deleteError) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `データの削除に失敗しました: ${deleteError.message}`,
-      },
-      { status: 500 }
-    );
+    console.error("[HPB Data] Delete error:", deleteError);
+    return apiError("データの削除に失敗しました", 500);
   }
 
   // 7. 残データ確認 → 全月削除の場合のみ upload_logs を deleted に更新
@@ -244,8 +170,14 @@ export async function DELETE(
     console.error("Failed to insert deletion log:", auditLogError);
   }
 
-  return NextResponse.json({
-    success: true,
-    data: { deletedCount: existingRecords.length },
+  logAudit({
+    userId: session.id,
+    action: "hpb.delete",
+    resourceType: "hpb_data",
+    resourceId: locationId,
+    metadata: { yearMonths: existingYearMonths, deletedCount: existingRecords.length },
+    ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
   });
+
+  return apiSuccess({ deletedCount: existingRecords.length });
 }

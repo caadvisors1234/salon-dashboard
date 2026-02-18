@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { memo, useId } from "react";
 import {
   AreaChart,
   Area,
@@ -46,7 +46,7 @@ const SERIES = [
   { key: "impressionsMobileMaps" },
 ] as const;
 
-export function ImpressionsChart({ data }: { data: MonthlyMetricPoint[] }) {
+export const ImpressionsChart = memo(function ImpressionsChart({ data }: { data: MonthlyMetricPoint[] }) {
   const uid = useId().replace(/:/g, "");
 
   return (
@@ -91,4 +91,4 @@ export function ImpressionsChart({ data }: { data: MonthlyMetricPoint[] }) {
       </CardContent>
     </Card>
   );
-}
+});

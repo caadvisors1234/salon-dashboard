@@ -289,7 +289,7 @@ export async function getReportHpbData(locationId: string): Promise<{
 
   const { data: hpbMetrics } = await supabase
     .from("hpb_monthly_metrics")
-    .select("*")
+    .select("year_month, salon_pv, salon_pv_area_avg, cvr, cvr_area_avg, acr, acr_area_avg")
     .eq("location_id", locationId)
     .order("year_month", { ascending: true });
 

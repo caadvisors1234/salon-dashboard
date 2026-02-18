@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { memo, useId } from "react";
 import {
   Area,
   Line,
@@ -36,7 +36,7 @@ const acrChartConfig = {
   acrAreaAvg: { label: "エリア平均", color: "var(--color-chart-3)" },
 } satisfies ChartConfig;
 
-function HpbComposedChart({
+const HpbComposedChart = memo(function HpbComposedChart({
   data,
   title,
   dataKey,
@@ -100,9 +100,9 @@ function HpbComposedChart({
       </CardContent>
     </Card>
   );
-}
+});
 
-export function HpbTrendCharts({ data }: { data: HpbMonthlyPoint[] }) {
+export const HpbTrendCharts = memo(function HpbTrendCharts({ data }: { data: HpbMonthlyPoint[] }) {
   return (
     <div className="space-y-4">
       <HpbComposedChart
@@ -134,4 +134,4 @@ export function HpbTrendCharts({ data }: { data: HpbMonthlyPoint[] }) {
       </div>
     </div>
   );
-}
+});

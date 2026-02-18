@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth/guards";
 import { exchangeCodeForTokens, getUserInfo } from "@/lib/gbp/oauth";
 import { saveOAuthTokens } from "@/lib/gbp/token-store";
 import { fetchAndSaveGbpAccounts } from "@/lib/gbp/accounts";
+import { logAudit } from "@/lib/audit/logger";
 
 /**
  * GET /api/oauth/google/callback
@@ -69,6 +70,15 @@ export async function GET(request: NextRequest) {
       console.error("Failed to fetch GBP accounts:", accountError);
       // アカウント取得失敗は致命的ではない（後から再取得可能）
     }
+
+    logAudit({
+      userId: session.id,
+      action: "oauth.connect",
+      resourceType: "oauth_token",
+      resourceId: tokenId,
+      metadata: { googleEmail: userInfo.email },
+      ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
+    });
 
     settingsUrl.searchParams.set("oauth_success", "true");
     return NextResponse.redirect(settingsUrl);

@@ -52,6 +52,10 @@ vi.mock("@/lib/batch/jobs/initial-backfill", () => ({
   runInitialBackfill: (...args: unknown[]) => mockRunInitialBackfill(...args),
 }));
 
+vi.mock("@/lib/audit/logger", () => ({
+  logAudit: vi.fn(),
+}));
+
 import { POST } from "./route";
 
 function createRequest(body: unknown): NextRequest {
@@ -106,8 +110,8 @@ describe("POST /api/batch/trigger", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.jobType).toBe("daily");
-    expect(body.result).toEqual({ processed: 5 });
+    expect(body.data.jobType).toBe("daily");
+    expect(body.data.result).toEqual({ processed: 5 });
   });
 
   it("200: monthly ジョブ正常実行", async () => {
@@ -118,7 +122,7 @@ describe("POST /api/batch/trigger", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.jobType).toBe("monthly");
+    expect(body.data.jobType).toBe("monthly");
   });
 
   it("200: monthly ジョブ（targetDate指定）", async () => {
@@ -140,6 +144,7 @@ describe("POST /api/batch/trigger", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
+    expect(body.data.jobType).toBe("backfill");
   });
 
   it("400: initial-backfill で locationId なし", async () => {
@@ -162,8 +167,8 @@ describe("POST /api/batch/trigger", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.jobType).toBe("initial-backfill");
-    expect(body.message).toBeDefined();
+    expect(body.data.jobType).toBe("initial-backfill");
+    expect(body.data.message).toBeDefined();
     expect(mockRunInitialBackfill).toHaveBeenCalledWith("loc-1");
   });
 
@@ -208,7 +213,7 @@ describe("POST /api/batch/trigger", () => {
     const res = await POST(createRequest({ jobType: "daily" }));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toContain("DB connection failed");
+    expect(body.error).toBe("バッチ実行に失敗しました");
   });
 
   it("エラー後もロックが解放される", async () => {

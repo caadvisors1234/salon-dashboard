@@ -61,6 +61,11 @@ vi.mock("@/lib/pdf/rate-limit", () => ({
   },
 }));
 
+// 監査ログモック
+vi.mock("@/lib/audit/logger", () => ({
+  logAudit: vi.fn(),
+}));
+
 import { POST } from "./route";
 
 function createRequest(body: unknown): NextRequest {
@@ -329,6 +334,6 @@ describe("POST /api/reports/generate", () => {
     );
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toContain("Puppeteer crashed");
+    expect(body.error).toBe("PDF生成に失敗しました");
   });
 });

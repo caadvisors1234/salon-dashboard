@@ -39,8 +39,8 @@ export function GoogleOAuthCard() {
       ]);
       const statusData = await statusRes.json();
       const accountsData = await accountsRes.json();
-      setOauthStatus(statusData);
-      setAccounts(accountsData.accounts || []);
+      setOauthStatus(statusData.data ?? { status: "disconnected" });
+      setAccounts(accountsData.data?.accounts || []);
     } catch {
       setOauthStatus({ status: "disconnected" });
     } finally {
