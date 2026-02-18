@@ -4,6 +4,7 @@
  * - 欠損データを API から取得して補完（日付範囲一括取得で最適化）
  * - 指定日数超欠損はアラート発行
  */
+import pLimit from "p-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createGbpClient } from "@/lib/gbp/client";
 import { fetchDailyMetrics, saveDailyMetrics } from "@/lib/gbp/performance";
@@ -14,6 +15,8 @@ import {
   getGbpAccountId,
   type LocationTarget,
 } from "./daily";
+
+const CONCURRENCY_LIMIT = 5;
 
 export interface BackfillLocationResult {
   locationId: string;
@@ -316,45 +319,74 @@ export async function runBackfillJob(
   const expectedDates = generateDateRange(startDate, endDate);
 
   console.log(
-    `[BackfillJob] Checking ${locations.length} locations for ${expectedDates.length} days (${expectedDates[0]} to ${expectedDates[expectedDates.length - 1]})`
+    `[BackfillJob] Checking ${locations.length} locations for ${expectedDates.length} days (${expectedDates[0]} to ${expectedDates[expectedDates.length - 1]}) (concurrency: ${CONCURRENCY_LIMIT})`
   );
 
-  const results: BackfillLocationResult[] = [];
-  const overdueLocations: OverdueLocation[] = [];
   let totalMetricDaysFilled = 0;
   let totalRatingDaysFilled = 0;
 
-  for (const location of locations) {
-    console.log(`[BackfillJob] Checking ${location.name}...`);
-    const { result, overdue } = await processLocation(
-      location,
-      expectedDates,
-      gbpAccountId,
-      backfillDays
-    );
+  const limit = pLimit(CONCURRENCY_LIMIT);
+  const settled = await Promise.allSettled(
+    locations.map((location) =>
+      limit(async () => {
+        console.log(`[BackfillJob] Checking ${location.name}...`);
+        const { result, overdue } = await processLocation(
+          location,
+          expectedDates,
+          gbpAccountId,
+          backfillDays
+        );
 
-    results.push(result);
+        if (overdue) {
+          console.warn(
+            `[BackfillJob] ⚠ ${location.name}: ${backfillDays}日超の欠損あり (metrics: ${overdue.lastMetricDate || "データなし"}, rating: ${overdue.lastRatingDate || "データなし"})`
+          );
+        }
+
+        if (result.filledMetricDays > 0 || result.filledRatingDays > 0) {
+          console.log(
+            `[BackfillJob] ✓ ${location.name}: metrics=${result.filledMetricDays}/${result.missingMetricDays}, rating=${result.filledRatingDays}/${result.missingRatingDays}`
+          );
+        }
+
+        if (result.errors.length > 0) {
+          console.warn(
+            `[BackfillJob] ⚠ ${location.name}: ${result.errors.length} errors`
+          );
+        }
+
+        return { result, overdue };
+      })
+    )
+  );
+
+  // 並列処理完了後にまとめて集計（共有配列への並行pushを回避）
+  const results: BackfillLocationResult[] = [];
+  const overdueLocations: OverdueLocation[] = [];
+
+  for (let i = 0; i < settled.length; i++) {
+    const s = settled[i];
+    if (s.status === "fulfilled") {
+      results.push(s.value.result);
+      if (s.value.overdue) {
+        overdueLocations.push(s.value.overdue);
+      }
+    } else {
+      results.push({
+        locationId: locations[i].id,
+        locationName: locations[i].name,
+        missingMetricDays: 0,
+        missingRatingDays: 0,
+        filledMetricDays: 0,
+        filledRatingDays: 0,
+        errors: [s.reason?.message ?? String(s.reason)],
+      });
+    }
+  }
+
+  for (const result of results) {
     totalMetricDaysFilled += result.filledMetricDays;
     totalRatingDaysFilled += result.filledRatingDays;
-
-    if (overdue) {
-      overdueLocations.push(overdue);
-      console.warn(
-        `[BackfillJob] ⚠ ${location.name}: ${backfillDays}日超の欠損あり (metrics: ${overdue.lastMetricDate || "データなし"}, rating: ${overdue.lastRatingDate || "データなし"})`
-      );
-    }
-
-    if (result.filledMetricDays > 0 || result.filledRatingDays > 0) {
-      console.log(
-        `[BackfillJob] ✓ ${location.name}: metrics=${result.filledMetricDays}/${result.missingMetricDays}, rating=${result.filledRatingDays}/${result.missingRatingDays}`
-      );
-    }
-
-    if (result.errors.length > 0) {
-      console.warn(
-        `[BackfillJob] ⚠ ${location.name}: ${result.errors.length} errors`
-      );
-    }
   }
 
   console.log(

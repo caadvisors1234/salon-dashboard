@@ -8,7 +8,6 @@ import type { OAuthTokens, StoredOAuthToken } from "./types";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
-const TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
   const key = process.env.GOOGLE_TOKEN_ENCRYPTION_KEY;

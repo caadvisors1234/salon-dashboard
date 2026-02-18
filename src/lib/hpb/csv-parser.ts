@@ -2,7 +2,6 @@ import iconv from "iconv-lite";
 import { parse } from "csv-parse/sync";
 import {
   REQUIRED_COLUMNS,
-  KNOWN_DUPLICATE_COLUMNS,
   COLUMN_DEFINITIONS,
   type ParseResult,
   type ParseMessage,

@@ -4,6 +4,7 @@ import { checkOrgAccess } from "@/lib/auth/access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createReportToken } from "@/lib/pdf/token";
 import { pdfQueue } from "@/lib/pdf/queue";
+import { pdfRateLimit } from "@/lib/pdf/rate-limit";
 import { generateStorePdf, generateClientZip } from "@/lib/pdf/generator";
 import { getOrgLocations, getOrgName } from "@/lib/pdf/report-queries";
 
@@ -92,6 +93,24 @@ export async function POST(request: NextRequest) {
     if (!hasAccess) {
       return NextResponse.json({ error: "このクライアントのレポート生成権限がありません" }, { status: 403 });
     }
+  }
+
+  // ユーザー単位レート制限チェック
+  // NOTE: check()はカウントを消費する（生成成功時ではなく呼出時にカウント）。
+  // 後続のキュー満杯や生成失敗でもカウントされるが、乱用防止の観点で許容する。
+  const rateCheck = pdfRateLimit.check(user.id);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: "レポート生成の上限に達しました（1時間あたり5件まで）" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(
+            Math.ceil((rateCheck.resetAt - Date.now()) / 1000)
+          ),
+        },
+      }
+    );
   }
 
   // キュー状態チェック（待ちが多すぎる場合は拒否）

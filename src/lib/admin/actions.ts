@@ -96,7 +96,7 @@ export async function inviteUser(
   orgId?: string,
   orgIds?: string[]
 ): Promise<ActionResult<{ userId: string }>> {
-  const session = await requireRole(["admin"]);
+  await requireRole(["admin"]);
   const adminClient = createAdminClient();
 
   // バリデーション

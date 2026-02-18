@@ -118,7 +118,7 @@ describe("POST /api/hpb/upload", () => {
     expect(body.error).toContain("店舗");
   });
 
-  it("400: 非CSVファイル", async () => {
+  it("400: 非CSVファイル（拡張子チェック）", async () => {
     mockGetSession.mockResolvedValue(mockUsers.admin);
     const txtFile = new File(["hello"], "test.txt", { type: "text/plain" });
     const res = await POST(
@@ -127,6 +127,57 @@ describe("POST /api/hpb/upload", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain("CSV");
+  });
+
+  it("400: 許可されていないMIMEタイプ", async () => {
+    mockGetSession.mockResolvedValue(mockUsers.admin);
+    const file = new File(["data"], "test.csv", {
+      type: "application/octet-stream",
+    });
+    const res = await POST(
+      createUploadRequest({ file, locationId: "loc-001" })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("許可されていないファイル形式");
+  });
+
+  it("400: バイナリファイル（PNGシグネチャ）", async () => {
+    mockGetSession.mockResolvedValue(mockUsers.admin);
+    // locations テーブルクエリ
+    mockFromChain.mockReturnValue(
+      createChain({
+        data: { id: "loc-001", org_id: "org-001", name: "テスト店舗" },
+      })
+    );
+
+    // PNG magic bytes + padding
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const file = new File([pngBytes], "image.csv", { type: "text/csv" });
+    const res = await POST(
+      createUploadRequest({ file, locationId: "loc-001" })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("PNG");
+  });
+
+  it("400: バイナリファイル（ZIPシグネチャ）", async () => {
+    mockGetSession.mockResolvedValue(mockUsers.admin);
+    mockFromChain.mockReturnValue(
+      createChain({
+        data: { id: "loc-001", org_id: "org-001", name: "テスト店舗" },
+      })
+    );
+
+    const zipBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00]);
+    const file = new File([zipBytes], "archive.csv", { type: "text/csv" });
+    const res = await POST(
+      createUploadRequest({ file, locationId: "loc-001" })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("ZIP");
   });
 
   it("404: 店舗が見つからない", async () => {

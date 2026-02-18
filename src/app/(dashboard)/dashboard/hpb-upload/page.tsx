@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 
 export default async function HpbUploadPage() {
-  const session = await requireRole(["admin", "staff"]);
+  await requireRole(["admin", "staff"]);
   const supabase = await createClient();
 
   // アクセス可能な店舗リスト取得（組織名付き）

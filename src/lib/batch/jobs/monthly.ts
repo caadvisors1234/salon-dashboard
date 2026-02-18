@@ -2,9 +2,12 @@
  * 月次バッチジョブ
  * - Search Keywords API で前月の検索キーワードを取得
  */
+import pLimit from "p-limit";
 import { createGbpClient } from "@/lib/gbp/client";
 import { fetchMonthlyKeywords, saveMonthlyKeywords } from "@/lib/gbp/keywords";
 import { getTargetLocations, type LocationTarget } from "./daily";
+
+const CONCURRENCY_LIMIT = 5;
 
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
@@ -133,19 +136,33 @@ export async function runMonthlyJob(
     };
   }
 
-  console.log(`[MonthlyJob] Processing ${locations.length} locations`);
+  console.log(`[MonthlyJob] Processing ${locations.length} locations (concurrency: ${CONCURRENCY_LIMIT})`);
 
-  const results: MonthlyLocationResult[] = [];
-  for (const location of locations) {
-    const result = await processLocation(location, year, month, yearMonth);
-    results.push(result);
+  const limit = pLimit(CONCURRENCY_LIMIT);
+  const settled = await Promise.allSettled(
+    locations.map((location) =>
+      limit(async () => {
+        const result = await processLocation(location, year, month, yearMonth);
+        if (result.success) {
+          console.log(`[MonthlyJob] ✓ ${location.name} (${result.keywordCount} keywords)`);
+        } else {
+          console.error(`[MonthlyJob] ✗ ${location.name}: ${result.error}`);
+        }
+        return result;
+      })
+    )
+  );
 
-    if (result.success) {
-      console.log(`[MonthlyJob] ✓ ${location.name} (${result.keywordCount} keywords)`);
-    } else {
-      console.error(`[MonthlyJob] ✗ ${location.name}: ${result.error}`);
-    }
-  }
+  const results: MonthlyLocationResult[] = settled.map((r, i) =>
+    r.status === "fulfilled"
+      ? r.value
+      : {
+          locationId: locations[i].id,
+          locationName: locations[i].name,
+          success: false,
+          error: r.reason?.message ?? String(r.reason),
+        }
+  );
 
   const successCount = results.filter((r) => r.success).length;
   const failureCount = results.filter((r) => !r.success).length;

@@ -34,17 +34,28 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  // NOTE: Supabaseの公式ガイドではcreateServerClientとgetUser()の間にコードを
+  // 挟まないよう推奨されているが、以下のパス判定はDBアクセスを伴わない純粋な
+  // 文字列比較のみであり、セッション更新には影響しない。getUser()失敗時の
+  // フォールバック判定に必要なため、ここで先に実行する。
   const pathname = request.nextUrl.pathname;
   const isPublicPath = PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(path + "/")
   );
+
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch (error) {
+    console.error("[Middleware] Supabase auth error:", error);
+    if (isPublicPath) {
+      return supabaseResponse;
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = LOGIN_PATH;
+    return NextResponse.redirect(url);
+  }
 
   // 未認証 + 保護パス → /login にリダイレクト
   if (!user && !isPublicPath) {

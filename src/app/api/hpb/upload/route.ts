@@ -82,6 +82,20 @@ export async function POST(
     );
   }
 
+  // MIMEタイプ検証（ブラウザがMIMEを設定しない場合は空のため許可）
+  const allowedMimeTypes = [
+    "text/csv",
+    "text/plain",
+    "application/csv",
+    "application/vnd.ms-excel",
+  ];
+  if (file.type && !allowedMimeTypes.includes(file.type)) {
+    return NextResponse.json(
+      { success: false, error: "許可されていないファイル形式です" },
+      { status: 400 }
+    );
+  }
+
   if (!locationId) {
     return NextResponse.json(
       { success: false, error: "対象店舗が指定されていません" },
@@ -122,6 +136,30 @@ export async function POST(
   // 5. CSVパース
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
+
+  // マジックバイトチェック（バイナリファイルの誤アップロードを防止）
+  if (buffer.length >= 4) {
+    const head = buffer.subarray(0, 4);
+    const blockedSignatures: { sig: number[]; label: string }[] = [
+      { sig: [0x4d, 0x5a], label: "EXE" }, // MZ (Windows executable)
+      { sig: [0x7f, 0x45, 0x4c, 0x46], label: "ELF" }, // ELF (Linux binary)
+      { sig: [0x50, 0x4b, 0x03, 0x04], label: "ZIP" }, // ZIP archive
+      { sig: [0x25, 0x50, 0x44, 0x46], label: "PDF" }, // %PDF
+      { sig: [0x89, 0x50, 0x4e, 0x47], label: "PNG" }, // PNG image
+    ];
+    for (const { sig, label } of blockedSignatures) {
+      if (sig.every((b, i) => head[i] === b)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `CSVファイルではありません（${label}ファイルが検出されました）`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   const parseResult = parseHpbCsv(buffer);
 
   // パースエラーがあれば返却
@@ -167,7 +205,12 @@ export async function POST(
 
   // 8. Supabase Storage にCSV原本をアップロード
   const timestamp = Date.now();
-  const storagePath = `${location.org_id}/${locationId}/${timestamp}_${file.name}`;
+  const sanitizedName = file.name
+    .replace(/[/\\]/g, "_")
+    .replace(/\.\./g, "_")
+    .replace(/[^\w.\-\u3000-\u9fff\uff00-\uffef\uac00-\ud7af]/g, "_")
+    .slice(0, 100);
+  const storagePath = `${location.org_id}/${locationId}/${timestamp}_${sanitizedName}`;
 
   const { error: storageError } = await supabase.storage
     .from("hpb-csv")

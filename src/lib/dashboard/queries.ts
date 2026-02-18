@@ -82,27 +82,26 @@ export async function getClientSummaries(): Promise<{ clients: ClientSummary[]; 
   const activeLocations = (locations || []).filter((l) => l.is_active);
   const locationIds = activeLocations.map((l) => l.id);
 
-  // 前月メトリクス一括取得
-  const { data: metrics } = await supabase
-    .from("daily_metrics")
-    .select("location_id, metric_type, value")
-    .in("location_id", locationIds)
-    .gte("date", prevStart)
-    .lte("date", prevEnd);
-
-  // 最新評価を一括取得（前月末に最も近い日付）
-  const { data: ratings } = await supabase
-    .from("rating_snapshots")
-    .select("location_id, rating, review_count, date")
-    .in("location_id", locationIds)
-    .lte("date", prevEnd)
-    .order("date", { ascending: false });
-
-  // HPB データ有無
-  const { data: hpbData } = await supabase
-    .from("hpb_monthly_metrics")
-    .select("location_id, year_month")
-    .in("location_id", locationIds);
+  // 前月メトリクス・評価・HPBデータを並列取得
+  const [{ data: metrics }, { data: ratings }, { data: hpbData }] =
+    await Promise.all([
+      supabase
+        .from("daily_metrics")
+        .select("location_id, metric_type, value")
+        .in("location_id", locationIds)
+        .gte("date", prevStart)
+        .lte("date", prevEnd),
+      supabase
+        .from("rating_snapshots")
+        .select("location_id, rating, review_count, date")
+        .in("location_id", locationIds)
+        .lte("date", prevEnd)
+        .order("date", { ascending: false }),
+      supabase
+        .from("hpb_monthly_metrics")
+        .select("location_id, year_month")
+        .in("location_id", locationIds),
+    ]);
 
   // org 別に集計
   const clients = orgs.map((org) => {

@@ -3,10 +3,13 @@
  * - Performance API v1 で前日の日次パフォーマンス指標（7指標）を取得
  * - Reviews API v4.9 で評価・レビュー数スナップショットを取得
  */
+import pLimit from "p-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createGbpClient } from "@/lib/gbp/client";
 import { fetchDailyMetrics, saveDailyMetrics } from "@/lib/gbp/performance";
 import { fetchRatingSnapshot, saveRatingSnapshot } from "@/lib/gbp/reviews";
+
+const CONCURRENCY_LIMIT = 5;
 
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
@@ -160,19 +163,33 @@ export async function runDailyJob(targetDate?: string): Promise<DailyJobResult> 
     console.warn("[DailyJob] No GBP account found. Rating snapshots will be skipped.");
   }
 
-  console.log(`[DailyJob] Processing ${locations.length} locations`);
+  console.log(`[DailyJob] Processing ${locations.length} locations (concurrency: ${CONCURRENCY_LIMIT})`);
 
-  const results: JobLocationResult[] = [];
-  for (const location of locations) {
-    const result = await processLocation(location, date, gbpAccountId);
-    results.push(result);
+  const limit = pLimit(CONCURRENCY_LIMIT);
+  const settled = await Promise.allSettled(
+    locations.map((location) =>
+      limit(async () => {
+        const result = await processLocation(location, date, gbpAccountId);
+        if (result.success) {
+          console.log(`[DailyJob] ✓ ${location.name} (${result.metricsCount} metrics)`);
+        } else {
+          console.error(`[DailyJob] ✗ ${location.name}: ${result.error}`);
+        }
+        return result;
+      })
+    )
+  );
 
-    if (result.success) {
-      console.log(`[DailyJob] ✓ ${location.name} (${result.metricsCount} metrics)`);
-    } else {
-      console.error(`[DailyJob] ✗ ${location.name}: ${result.error}`);
-    }
-  }
+  const results: JobLocationResult[] = settled.map((r, i) =>
+    r.status === "fulfilled"
+      ? r.value
+      : {
+          locationId: locations[i].id,
+          locationName: locations[i].name,
+          success: false,
+          error: r.reason?.message ?? String(r.reason),
+        }
+  );
 
   const successCount = results.filter((r) => r.success).length;
   const failureCount = results.filter((r) => !r.success).length;

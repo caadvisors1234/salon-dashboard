@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent skills and test fixture scripts (plain JS, not application code)
+    ".agents/**",
+    "test/fixtures/**/*.js",
   ]),
 ]);
 
