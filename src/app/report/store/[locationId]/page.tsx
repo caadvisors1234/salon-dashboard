@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { verifyReportToken } from "@/lib/pdf/token";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { checkLocationAccess, checkOrgAccess } from "@/lib/auth/access";
+import type { AuthUser, UserRole } from "@/types";
 import { formatYearMonthLabel } from "@/lib/dashboard/utils";
 import {
   getReportLocationInfo,
@@ -37,12 +40,52 @@ export default async function StoreReportPage({ params, searchParams }: Props) {
     );
   }
 
+  let tokenPayload;
   try {
-    await verifyReportToken(token);
+    tokenPayload = await verifyReportToken(token);
   } catch {
     return (
       <div className="p-8 text-center text-red-600">
         無効または期限切れのトークンです（403）
+      </div>
+    );
+  }
+
+  // アクセス権の再検証
+  const supabaseAdmin = createAdminClient();
+  const { data: userRecord } = await supabaseAdmin
+    .from("users")
+    .select("id, email, role, org_id, display_name")
+    .eq("id", tokenPayload.userId)
+    .single();
+
+  if (!userRecord) {
+    return (
+      <div className="p-8 text-center text-red-600">
+        ユーザーが見つかりません（403）
+      </div>
+    );
+  }
+
+  const authUser: AuthUser = {
+    id: userRecord.id,
+    email: userRecord.email,
+    role: userRecord.role as UserRole,
+    orgId: userRecord.org_id,
+    displayName: userRecord.display_name,
+  };
+
+  let hasAccess = false;
+  if (tokenPayload.scope.type === "store") {
+    hasAccess = await checkLocationAccess(authUser, locationId);
+  } else if (tokenPayload.scope.type === "client") {
+    hasAccess = await checkOrgAccess(authUser, tokenPayload.scope.orgId);
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="p-8 text-center text-red-600">
+        このレポートへのアクセス権限がありません（403）
       </div>
     );
   }

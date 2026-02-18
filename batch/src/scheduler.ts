@@ -22,7 +22,7 @@ let monthlyTask: cron.ScheduledTask | null = null;
 export async function executeDailyJob(): Promise<void> {
   const jobType = "daily_batch";
 
-  if (!acquireLock(jobType)) {
+  if (!(await acquireLock(jobType))) {
     console.log("[Scheduler] Daily job already running, skipping");
     return;
   }
@@ -54,7 +54,7 @@ export async function executeDailyJob(): Promise<void> {
       await logJobError(logId, message);
     }
   } finally {
-    releaseLock(jobType);
+    await releaseLock(jobType);
   }
 }
 
@@ -64,7 +64,7 @@ export async function executeDailyJob(): Promise<void> {
 export async function executeMonthlyJob(): Promise<void> {
   const jobType = "monthly_batch";
 
-  if (!acquireLock(jobType)) {
+  if (!(await acquireLock(jobType))) {
     console.log("[Scheduler] Monthly job already running, skipping");
     return;
   }
@@ -96,7 +96,7 @@ export async function executeMonthlyJob(): Promise<void> {
       await logJobError(logId, message);
     }
   } finally {
-    releaseLock(jobType);
+    await releaseLock(jobType);
   }
 }
 

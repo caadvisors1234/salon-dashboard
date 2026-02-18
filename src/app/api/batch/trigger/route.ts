@@ -72,14 +72,14 @@ export async function POST(request: NextRequest) {
   const lockKey = getLockKey(jobType as JobType, locationId);
 
   // 重複防止
-  if (isLocked(lockKey)) {
+  if (await isLocked(lockKey)) {
     return NextResponse.json(
       { error: `${jobType} ジョブは現在実行中です。完了後に再試行してください。` },
       { status: 409 }
     );
   }
 
-  if (!acquireLock(lockKey)) {
+  if (!(await acquireLock(lockKey))) {
     return NextResponse.json(
       { error: `${jobType} ジョブのロック取得に失敗しました` },
       { status: 409 }
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         locationId,
       });
     } catch (err) {
-      releaseLock(lockKey);
+      await releaseLock(lockKey);
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json(
         { error: `バッチ実行に失敗しました: ${message}` },
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
           await logJobError(logId, message);
         }
       } finally {
-        releaseLock(lockKey);
+        await releaseLock(lockKey);
       }
     });
 
@@ -172,6 +172,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    releaseLock(lockKey);
+    await releaseLock(lockKey);
   }
 }

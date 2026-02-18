@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      batch_locks: {
+        Row: {
+          expires_at: string
+          job_type: string
+          locked_at: string
+          locked_by: string
+        }
+        Insert: {
+          expires_at: string
+          job_type: string
+          locked_at?: string
+          locked_by: string
+        }
+        Update: {
+          expires_at?: string
+          job_type?: string
+          locked_at?: string
+          locked_by?: string
+        }
+        Relationships: []
+      }
       batch_logs: {
         Row: {
           completed_at: string | null
@@ -120,6 +141,7 @@ export type Database = {
           is_valid: boolean
           refresh_token_encrypted: string
           scopes: string
+          singleton_key: string
           token_expiry: string
           updated_at: string
           user_id: string
@@ -132,6 +154,7 @@ export type Database = {
           is_valid?: boolean
           refresh_token_encrypted: string
           scopes: string
+          singleton_key?: string
           token_expiry: string
           updated_at?: string
           user_id: string
@@ -144,6 +167,7 @@ export type Database = {
           is_valid?: boolean
           refresh_token_encrypted?: string
           scopes?: string
+          singleton_key?: string
           token_expiry?: string
           updated_at?: string
           user_id?: string
@@ -557,20 +581,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acquire_batch_lock: {
+        Args: {
+          p_job_type: string
+          p_locked_by: string
+          p_ttl_minutes?: number
+        }
+        Returns: boolean
+      }
       get_accessible_org_ids: { Args: never; Returns: string[] }
       get_monthly_metrics: {
         Args: {
+          p_end_date: string
           p_location_id: string
           p_start_date: string
-          p_end_date: string
         }
         Returns: {
-          year_month: string
           metric_type: string
           total_value: number
+          year_month: string
         }[]
       }
       get_user_role: { Args: never; Returns: string }
+      is_batch_locked: { Args: { p_job_type: string }; Returns: boolean }
+      release_batch_lock: {
+        Args: { p_job_type: string; p_locked_by: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

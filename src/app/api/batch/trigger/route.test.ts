@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { mockUsers } from "@/test/helpers/mock-auth";
-import { clearAllLocks } from "@/lib/batch/lock";
 
 const mockAfter = vi.fn((fn: () => void) => fn());
 vi.mock("next/server", async (importOriginal) => {
@@ -18,6 +17,22 @@ vi.mock("@/lib/batch/logger", () => ({
   logJobStart: vi.fn().mockResolvedValue("log-001"),
   logJobComplete: vi.fn().mockResolvedValue(undefined),
   logJobError: vi.fn().mockResolvedValue(undefined),
+}));
+
+// lockモジュールをモック（DBアクセスを排除）
+const localLockSet = new Set<string>();
+vi.mock("@/lib/batch/lock", () => ({
+  acquireLock: vi.fn(async (jobType: string) => {
+    if (localLockSet.has(jobType)) return false;
+    localLockSet.add(jobType);
+    return true;
+  }),
+  releaseLock: vi.fn(async (jobType: string) => {
+    localLockSet.delete(jobType);
+  }),
+  isLocked: vi.fn(async (jobType: string) => localLockSet.has(jobType)),
+  getLockedJobs: vi.fn(() => [...localLockSet]),
+  clearAllLocks: vi.fn(() => localLockSet.clear()),
 }));
 
 const mockRunDailyJob = vi.fn();
@@ -56,7 +71,7 @@ describe("POST /api/batch/trigger", () => {
     mockRunInitialBackfill.mockReset();
     mockAfter.mockReset();
     mockAfter.mockImplementation((fn: () => void) => fn());
-    clearAllLocks();
+    localLockSet.clear();
   });
 
   it("403: 未認証", async () => {

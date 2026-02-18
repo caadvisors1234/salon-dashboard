@@ -63,20 +63,21 @@ export async function saveOAuthTokens(
   const accessTokenEncrypted = encrypt(tokens.accessToken);
   const refreshTokenEncrypted = encrypt(tokens.refreshToken);
 
-  // 既存トークンを削除（システム全体で1トークン）
-  await supabase.from("google_oauth_tokens").delete().gte("created_at", "1970-01-01T00:00:00Z");
-
   const { data, error } = await supabase
     .from("google_oauth_tokens")
-    .insert({
-      user_id: userId,
-      google_email: tokens.googleEmail,
-      access_token_encrypted: accessTokenEncrypted,
-      refresh_token_encrypted: refreshTokenEncrypted,
-      token_expiry: tokens.expiryDate.toISOString(),
-      scopes: tokens.scopes,
-      is_valid: true,
-    })
+    .upsert(
+      {
+        singleton_key: "default",
+        user_id: userId,
+        google_email: tokens.googleEmail,
+        access_token_encrypted: accessTokenEncrypted,
+        refresh_token_encrypted: refreshTokenEncrypted,
+        token_expiry: tokens.expiryDate.toISOString(),
+        scopes: tokens.scopes,
+        is_valid: true,
+      },
+      { onConflict: "singleton_key" }
+    )
     .select("id")
     .single();
 

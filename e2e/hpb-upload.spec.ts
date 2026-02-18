@@ -1,24 +1,40 @@
 import { test, expect } from "@playwright/test";
-import path from "path";
-
-const CSV_FIXTURE = path.resolve(__dirname, "../test/fixtures/hpb-test.csv");
 
 test.describe("HPB CSVアップロード", () => {
-  test.fixme("アップロードページに遷移できる", async ({ page }) => {
+  test("アップロードページに遷移できる", async ({ page }) => {
     await page.goto("/dashboard");
-    const uploadLink = page.getByRole("link", { name: /HPB|アップロード|CSV/i });
+
+    // サイドバーのHPBアップロードリンクをクリック
+    const uploadLink = page.getByRole("link", { name: "HPBアップロード" });
     await expect(uploadLink).toBeVisible();
     await uploadLink.click();
-    await expect(page).toHaveURL(/upload|hpb/i);
+    await expect(page).toHaveURL(/\/dashboard\/hpb-upload/);
   });
 
-  test.fixme("CSVファイルをアップロードできる", async ({ page }) => {
-    await page.goto("/dashboard");
-    const fileInput = page.locator('input[type="file"]');
-    await expect(fileInput).toBeVisible();
-    await fileInput.setInputFiles(CSV_FIXTURE);
+  test("HPBアップロードページの要素が表示される", async ({ page }) => {
+    await page.goto("/dashboard/hpb-upload");
+
+    // ページ見出し
     await expect(
-      page.getByRole("button", { name: /アップロード|送信|確認/i })
+      page.getByRole("heading", { name: "HPBアップロード" })
+    ).toBeVisible();
+
+    // ファイル入力（hidden なので locator で確認）
+    const fileInput = page.locator('input[type="file"][accept=".csv"]');
+    await expect(fileInput).toBeAttached();
+
+    // アップロードボタン
+    await expect(
+      page.getByRole("button", { name: "アップロード" })
+    ).toBeVisible();
+  });
+
+  test("アップロード履歴セクションが表示される", async ({ page }) => {
+    await page.goto("/dashboard/hpb-upload");
+
+    // アップロード履歴の見出しまたはセクションが存在すること
+    await expect(
+      page.getByText("アップロード履歴")
     ).toBeVisible();
   });
 });
