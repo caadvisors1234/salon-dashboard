@@ -6,7 +6,20 @@ import {
   LOGIN_PATH,
 } from "@/lib/auth/constants";
 
+/** Supabaseセッション不要なパブリックパス（認証チェックをスキップ） */
+const SKIP_AUTH_PATHS = ["/demo", "/report"];
+
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // Supabase接続が不要なパスは早期リターン
+  const skipAuth = SKIP_AUTH_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(path + "/")
+  );
+  if (skipAuth) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -34,11 +47,6 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // NOTE: Supabaseの公式ガイドではcreateServerClientとgetUser()の間にコードを
-  // 挟まないよう推奨されているが、以下のパス判定はDBアクセスを伴わない純粋な
-  // 文字列比較のみであり、セッション更新には影響しない。getUser()失敗時の
-  // フォールバック判定に必要なため、ここで先に実行する。
-  const pathname = request.nextUrl.pathname;
   const isPublicPath = PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(path + "/")
   );
