@@ -3,7 +3,6 @@ import { LocationDashboard } from "@/components/dashboard/location-dashboard";
 import { KeywordRankingTable } from "@/components/dashboard/keyword-ranking-table";
 import { HpbKpiCards } from "@/components/dashboard/hpb-kpi-cards";
 import { HpbTrendCharts } from "@/components/dashboard/hpb-trend-charts";
-import { HpbDataFreshness } from "@/components/dashboard/hpb-data-freshness";
 import { SectionHeader } from "@/components/dashboard/section-header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -70,9 +69,6 @@ export default function DemoPage() {
             icon={<Sparkles className="h-5 w-5" />}
           />
           <div className="space-y-4">
-            {DEMO_HPB_DATA.uploadInfo && (
-              <HpbDataFreshness info={DEMO_HPB_DATA.uploadInfo} />
-            )}
             {DEMO_HPB_DATA.kpi && <HpbKpiCards data={DEMO_HPB_DATA.kpi} />}
             <HpbTrendCharts data={DEMO_HPB_DATA.timeSeries} />
           </div>
