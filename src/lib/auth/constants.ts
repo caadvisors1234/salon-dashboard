@@ -6,6 +6,7 @@ export const PUBLIC_PATHS = [
   "/auth/reset-password",
   "/auth/set-password",
   "/report",
+  "/demo",
 ];
 
 // ログイン後のデフォルト遷移先（全ロール共通）

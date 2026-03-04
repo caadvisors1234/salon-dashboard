@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { BarChart3, TrendingUp } from "lucide-react";
 import { PeriodSelector, getDefaultPeriodRange } from "./period-selector";
 import { SectionHeader } from "./section-header";
@@ -10,7 +10,7 @@ import { ActionsChart } from "./actions-chart";
 import { DeviceBreakdownChart } from "./device-breakdown-chart";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPeriodRangeLabel } from "@/lib/dashboard/utils";
+import { formatPeriodRangeLabel, formatYearMonthLabel } from "@/lib/dashboard/utils";
 import type {
   GbpKpiData,
   MonthlyMetricPoint,
@@ -24,9 +24,34 @@ type LocationDashboardProps = {
   initialDeviceBreakdown: DeviceBreakdownItem[];
   initialDeviceMonthLabel: string;
   locationId: string;
+  /** 全期間の時系列データ（デモモード用）。指定時はAPI fetchをスキップしクライアント側でフィルタリング */
+  demoTimeSeries?: MonthlyMetricPoint[];
   /** キーワードとHPBは別コンポーネントから描画されるため children で受け取る */
   children: React.ReactNode;
 };
+
+function filterTimeSeriesByPeriod(
+  allData: MonthlyMetricPoint[],
+  period: PeriodRange
+): { timeSeries: MonthlyMetricPoint[]; deviceBreakdown: DeviceBreakdownItem[]; deviceMonthLabel: string } {
+  const filtered = allData.filter(
+    (d) => d.yearMonth >= period.startMonth && d.yearMonth <= period.endMonth
+  );
+  const last = filtered[filtered.length - 1];
+  const deviceBreakdown: DeviceBreakdownItem[] = last
+    ? (() => {
+        const total = last.impressionsMobileSearch + last.impressionsMobileMaps + last.impressionsDesktopSearch + last.impressionsDesktopMaps;
+        return [
+          { name: "モバイル検索", value: last.impressionsMobileSearch, percentage: Math.round((last.impressionsMobileSearch / total) * 1000) / 10 },
+          { name: "モバイルマップ", value: last.impressionsMobileMaps, percentage: Math.round((last.impressionsMobileMaps / total) * 1000) / 10 },
+          { name: "PC検索", value: last.impressionsDesktopSearch, percentage: Math.round((last.impressionsDesktopSearch / total) * 1000) / 10 },
+          { name: "PCマップ", value: last.impressionsDesktopMaps, percentage: Math.round((last.impressionsDesktopMaps / total) * 1000) / 10 },
+        ];
+      })()
+    : [];
+  const deviceMonthLabel = last ? formatYearMonthLabel(last.yearMonth) : "";
+  return { timeSeries: filtered, deviceBreakdown, deviceMonthLabel };
+}
 
 export function LocationDashboard({
   gbpKpi,
@@ -34,8 +59,10 @@ export function LocationDashboard({
   initialDeviceBreakdown,
   initialDeviceMonthLabel,
   locationId,
+  demoTimeSeries,
   children,
 }: LocationDashboardProps) {
+  const isDemo = !!demoTimeSeries;
   const [period, setPeriod] = useState<PeriodRange>(getDefaultPeriodRange());
   const [timeSeries, setTimeSeries] = useState(initialTimeSeries);
   const [deviceBreakdown, setDeviceBreakdown] = useState(initialDeviceBreakdown);
@@ -45,6 +72,15 @@ export function LocationDashboard({
   const handlePeriodChange = useCallback(
     async (newPeriod: PeriodRange) => {
       setPeriod(newPeriod);
+
+      if (demoTimeSeries) {
+        const result = filterTimeSeriesByPeriod(demoTimeSeries, newPeriod);
+        setTimeSeries(result.timeSeries);
+        setDeviceBreakdown(result.deviceBreakdown);
+        setDeviceMonthLabel(result.deviceMonthLabel);
+        return;
+      }
+
       setLoading(true);
       try {
         const params = new URLSearchParams({
@@ -63,7 +99,7 @@ export function LocationDashboard({
         setLoading(false);
       }
     },
-    [locationId]
+    [locationId, demoTimeSeries]
   );
 
   return (
