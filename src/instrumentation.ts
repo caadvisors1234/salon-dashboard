@@ -8,10 +8,8 @@ export function register() {
   const result = webEnvSchema.safeParse(process.env);
 
   if (!result.success) {
-    console.error(formatValidationErrors(result.error));
-    // Vercel等の環境変数未設定環境（デモ専用デプロイ）ではthrowせず警告のみ
-    if (process.env.SKIP_ENV_VALIDATION !== "true") {
-      throw new Error("環境変数のバリデーションに失敗しました。ログを確認してください。");
-    }
+    // 警告のみ。Vercel等では環境変数未設定でもデモページ等の動作を許容する。
+    // 本番VPS環境ではDocker env_fileで全変数が供給される。
+    console.warn(formatValidationErrors(result.error));
   }
 }
