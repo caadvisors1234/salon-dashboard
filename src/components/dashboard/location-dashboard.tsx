@@ -42,10 +42,10 @@ function filterTimeSeriesByPeriod(
     ? (() => {
         const total = last.impressionsMobileSearch + last.impressionsMobileMaps + last.impressionsDesktopSearch + last.impressionsDesktopMaps;
         return [
-          { name: "モバイル検索", value: last.impressionsMobileSearch, percentage: Math.round((last.impressionsMobileSearch / total) * 1000) / 10 },
-          { name: "モバイルマップ", value: last.impressionsMobileMaps, percentage: Math.round((last.impressionsMobileMaps / total) * 1000) / 10 },
-          { name: "PC検索", value: last.impressionsDesktopSearch, percentage: Math.round((last.impressionsDesktopSearch / total) * 1000) / 10 },
-          { name: "PCマップ", value: last.impressionsDesktopMaps, percentage: Math.round((last.impressionsDesktopMaps / total) * 1000) / 10 },
+          { name: "Google検索 (PC)", value: last.impressionsDesktopSearch, percentage: Math.round((last.impressionsDesktopSearch / total) * 1000) / 10 },
+          { name: "Google検索 (モバイル)", value: last.impressionsMobileSearch, percentage: Math.round((last.impressionsMobileSearch / total) * 1000) / 10 },
+          { name: "Googleマップ (PC)", value: last.impressionsDesktopMaps, percentage: Math.round((last.impressionsDesktopMaps / total) * 1000) / 10 },
+          { name: "Googleマップ (モバイル)", value: last.impressionsMobileMaps, percentage: Math.round((last.impressionsMobileMaps / total) * 1000) / 10 },
         ];
       })()
     : [];

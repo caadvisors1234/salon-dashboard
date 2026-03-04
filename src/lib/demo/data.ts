@@ -44,7 +44,7 @@ export const DEMO_GBP_KPI: GbpKpiData = {
   },
 };
 
-// --- 時系列データ（12ヶ月分） ---
+// --- 時系列データ（13ヶ月分：過去12ヶ月+当月） ---
 function generateTimeSeries(): MonthlyMetricPoint[] {
   const baseData = [
     { ym: "2025-03", dsSearch: 1200, msSearch: 2800, dsMaps: 800, msMaps: 3200, calls: 85, dirs: 120, web: 95 },
@@ -59,6 +59,7 @@ function generateTimeSeries(): MonthlyMetricPoint[] {
     { ym: "2025-12", dsSearch: 1700, msSearch: 3800, dsMaps: 1050, msMaps: 4300, calls: 125, dirs: 180, web: 140 },
     { ym: "2026-01", dsSearch: 1550, msSearch: 3550, dsMaps: 980, msMaps: 3980, calls: 110, dirs: 160, web: 128 },
     { ym: "2026-02", dsSearch: 1650, msSearch: 3700, dsMaps: 1020, msMaps: 4175, calls: 118, dirs: 172, web: 135 },
+    { ym: "2026-03", dsSearch: 1580, msSearch: 3620, dsMaps: 1000, msMaps: 4080, calls: 112, dirs: 165, web: 130 },
   ];
 
   return baseData.map((d) => ({
@@ -77,11 +78,12 @@ function generateTimeSeries(): MonthlyMetricPoint[] {
 export const DEMO_TIME_SERIES: MonthlyMetricPoint[] = generateTimeSeries();
 
 // --- デバイス内訳（最新月） ---
+// name は DeviceBreakdownChart の NAME_TO_KEY と一致させる
 export const DEMO_DEVICE_BREAKDOWN: DeviceBreakdownItem[] = [
-  { name: "モバイル検索", value: 3700, percentage: 35.1 },
-  { name: "モバイルマップ", value: 4175, percentage: 39.6 },
-  { name: "PC検索", value: 1650, percentage: 15.7 },
-  { name: "PCマップ", value: 1020, percentage: 9.7 },
+  { name: "Google検索 (モバイル)", value: 3700, percentage: 35.1 },
+  { name: "Googleマップ (モバイル)", value: 4175, percentage: 39.6 },
+  { name: "Google検索 (PC)", value: 1650, percentage: 15.7 },
+  { name: "Googleマップ (PC)", value: 1020, percentage: 9.7 },
 ];
 
 export const DEMO_DEVICE_MONTH_LABEL = "2026年2月";
